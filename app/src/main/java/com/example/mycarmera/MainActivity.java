@@ -15,6 +15,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.util.Log;
 import android.view.TextureView;
 import android.view.View;
 import android.view.Window;
@@ -30,9 +31,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import java.io.File;
 
 @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
-public class MainActivity extends AppCompatActivity implements View.OnClickListener, CameraController.CameraControllerInterFaceCallback {
-    private HandlerThread mBackgroundThread;
-    private Handler mBackgroundHandler;
+public class MainActivity extends AppCompatActivity implements View.OnClickListener, CameraController.CameraControllerInterFaceCallback, MyButton.MyCameraButtonClickListener {
 
     private AutoFitTextureView mPreviewView;
 
@@ -54,6 +53,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private ImageView goto_photo;
     private View myVideoTakePicButton;
 
+    private HandlerThread mBackgroundThread;
+    private Handler mBackgroundHandler;
+    private int mCurrentMode = CameraConstant.PHOTO_MODE;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -70,8 +73,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private void initView() {
         mPreviewView = findViewById(R.id.preview_view);
         myButton = findViewById(R.id.myButton);
-        picModeTextView = findViewById(R.id.switch_mode_4_3);
-        videoModeTextView = findViewById(R.id.switch_mode_16_9);
+        picModeTextView = findViewById(R.id.switch_mode_pic);
+        videoModeTextView = findViewById(R.id.switch_mode_video);
         ratio_4_3 = findViewById(R.id.switch_ratio4_3);
         ratio_16_9 = findViewById(R.id.switch_ratio16_9);
         ll_switch_ratio = findViewById(R.id.ll_switch_ratio);
@@ -85,7 +88,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         picModeTextView.setOnClickListener(this);
         videoModeTextView.setOnClickListener(this);
-        myButton.setOnClickListener(this);
+        myButton.setOnBaseViewClickListener(this);
         ratio_4_3.setOnClickListener(this);
         ratio_16_9.setOnClickListener(this);
         switch_camera_id.setOnClickListener(this);
@@ -98,48 +101,46 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     //拍照模式
     private void picMode() {
+        if (mCurrentMode == CameraConstant.PHOTO_MODE) return;
         ll_switch_ratio.setVisibility(View.VISIBLE);
         ratio_4_3.setTextColor(Color.YELLOW);
         ratio_16_9.setTextColor(Color.WHITE);
         videoModeTextView.setTextColor(Color.WHITE);
         picModeTextView.setTextColor(Color.YELLOW);
-        //拍照模式设置监听拍照方法
-        myButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                mCameraController.takepicture();
-            }
-        });
-        mCameraController.switch_4_3();
+
+        mCurrentMode = CameraConstant.PHOTO_MODE;
+        myButton.setCurrentMode(mCurrentMode);
+
+        mCameraController.closeCamera();
+        mCameraController.setCurrentMode(mCurrentMode);
+        mCameraController.setTargetRatio(CameraConstant.RATIO_FOUR_THREE);
+        try {
+            mCameraController.openCamera();
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+        }
+
     }
 
     //录像模式
     private void videoMode() {
+        if (mCurrentMode == CameraConstant.VIDEO_MODE) return;
         ll_switch_ratio.setVisibility(View.GONE);//录像模式下默认16：9，不允许切换比例
         picModeTextView.setTextColor(Color.WHITE);
         videoModeTextView.setTextColor(Color.YELLOW);
-        //录像模式设置监听录像方法
-        myButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (mIsRecordingVideo) {
-//                            mTakeVideo.setText("开始");
-//                    Log.d("123123", "stopRecordingVideo");
-                    mIsRecordingVideo = false;
-                    mCameraController.stopRecordingVideo();
 
+        mCurrentMode = CameraConstant.VIDEO_MODE;
+        myButton.setCurrentMode(mCurrentMode);
 
-                } else {
-                    mFile = new File(MainActivity.this.getExternalFilesDir(null), "test.mp4");
-                    mCameraController.setVideoPath(mFile);
-                    mIsRecordingVideo = true;
-                    mCameraController.startRecordingVideo();
-//                    ll_switch_mode.setVisibility(View.GONE);//录像时不能切换模式
-//                    switch_camera_id.setVisibility(View.GONE);//录像时不能前后置切换
-                }
-            }
-        });
-        mCameraController.switch_16_9();
+        mIsRecordingVideo = false;
+        mCameraController.closeCamera();
+        mCameraController.setCurrentMode(mCurrentMode);
+        mCameraController.setTargetRatio(CameraConstant.RATIO_SIXTEEN_NINE);
+        try {
+            mCameraController.openCamera();
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+        }
     }
 
     //4：3
@@ -171,14 +172,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     @Override
     public void onClick(View v) {
         switch (v.getId()) {
-            case R.id.myButton:
-            case R.id.myVideoTakePicButton:
-                mCameraController.takepicture();
-                break;
-            case R.id.switch_mode_4_3:
+            case R.id.switch_mode_pic:
                 picMode();
                 break;
-            case R.id.switch_mode_16_9:
+            case R.id.switch_mode_video:
                 videoMode();
                 break;
             case R.id.switch_ratio4_3:
@@ -211,7 +208,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     @Override
     protected void onResume() {
         super.onResume();
-        startBackgroundThread();//开启一个后台线程处理相机数据
+        mCameraController.startBackgroundThread();//开启一个后台线程处理相机数据
         //判断TextureView是否有效，有效就直接openCamera()，
         if (mPreviewView.isAvailable()) {
             try {
@@ -227,12 +224,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     }
 
-
-    public void startBackgroundThread() {
-        mBackgroundThread = new HandlerThread("CameraBackground");
-        mBackgroundThread.start();
-        mBackgroundHandler = new Handler(mBackgroundThread.getLooper());
-    }
 
     private final TextureView.SurfaceTextureListener mSurfaceTextureListener
             = new TextureView.SurfaceTextureListener() {//TextureView回调
@@ -267,42 +258,25 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     @Override
     protected void onPause() {
         super.onPause();
+
         if (mIsRecordingVideo) {
-//            mTakeVideo.setText("开始");
             mIsRecordingVideo = false;
             mCameraController.stopRecordingVideo();
-//            ll_switch_mode.setVisibility(View.VISIBLE);//录像结束才能切换模式
-//            switch_camera_id.setVisibility(View.VISIBLE);//录像结束后才能前后置切换
-
         }
+        mCameraController.closeCamera();
+        mCameraController.stopBackgroundThread();
 
-        if (mImageReader != null) {//关闭ImageReader
-            mImageReader.close();
-            mImageReader = null;
-        }
 
-        if (mCaptureSession != null) {//关闭CameraCaptureSession
-            mCaptureSession.close();
-            mCaptureSession = null;
-        }
-
-        if (mCameraDevice != null) {//关闭相机
-            mCameraDevice.close();
-            mCameraDevice = null;
-        }
     }
 
 
     @Override
     public void startRecordVideo() {
-//                mTakeVideo.setText("停止");
         ll_switch_mode.setVisibility(View.GONE);//录像时不能切换模式
         switch_camera_id.setVisibility(View.GONE);//录像时不能前后置切换
         settings.setVisibility(View.GONE);//录像时不能设置水印
         myVideoTakePicButton.setVisibility(View.VISIBLE);//录像时可以进行拍照
         goto_photo.setVisibility(View.GONE);//录像时不能进入相册查看缩略图
-//        onMyCameraButtonClick();
-
 
     }
 
@@ -313,7 +287,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         settings.setVisibility(View.VISIBLE);//录像结束后才能设置水印
         myVideoTakePicButton.setVisibility(View.GONE);//录像结束关闭录像时拍照按钮
         goto_photo.setVisibility(View.VISIBLE);//录像结束才能进入相册查看缩略图
-        Toast.makeText(this, "录像储存位置：" + getExternalFilesDir(null) + "test.mp4", Toast.LENGTH_LONG).show();
+        Toast.makeText(this, "录像储存位置：" + Environment.getExternalStorageDirectory() + "/" + System.currentTimeMillis() + ".mp4", Toast.LENGTH_LONG).show();
 
 
     }
@@ -331,13 +305,36 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
 
-//    @Override
-//    public void onMyCameraButtonClick() {
-//        myButton.mPaint.setColor(Color.RED);
-//        Canvas canvas=new Canvas();
-//        canvas.drawCircle(88, 88, 60, myButton.mPaint);
-//    }
+    @Override
+    public void onMyCameraButtonClick(int mode) {
+        switch (mode) {
+            case CameraConstant.PHOTO_MODE:
+                takePicture();
+                break;
+            case CameraConstant.VIDEO_MODE:
+                takeVideo();
+                break;
 
+        }
+    }
+
+    private void takePicture() {
+        mFile = new File(Environment.getExternalStorageDirectory(),  System.currentTimeMillis() + ".jpg");
+        mCameraController.setPath(mFile);
+        mCameraController.takepicture();
+    }
+
+    private void takeVideo() {
+        if (mIsRecordingVideo) {
+            mIsRecordingVideo = false;
+            mCameraController.stopRecordingVideo();
+        } else {
+            mFile = new File(Environment.getExternalStorageDirectory(), System.currentTimeMillis() + ".mp4");
+            mCameraController.setPath(mFile);
+            mIsRecordingVideo = true;
+            mCameraController.startRecordingVideo();
+        }
+    }
 
 
     private void requestFullScreenActivity() {
@@ -345,5 +342,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
     }
+
 
 }

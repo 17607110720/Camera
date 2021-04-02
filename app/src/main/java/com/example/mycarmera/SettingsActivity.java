@@ -10,6 +10,8 @@ import android.widget.CompoundButton;
 import android.widget.ImageView;
 import android.widget.Switch;
 
+import static com.example.mycarmera.CameraConstant.ADD_WATER_MARK;
+
 public class SettingsActivity extends AppCompatActivity implements View.OnClickListener, CompoundButton.OnCheckedChangeListener {
 
     private ImageView mBack;
@@ -30,7 +32,7 @@ public class SettingsActivity extends AppCompatActivity implements View.OnClickL
         mBack.setOnClickListener(this);
         mSwitch.setOnCheckedChangeListener(this);
 
-        boolean waterMark = SharedPreferencesController.getInstance(this).spGetBoolean("add_water_mark");
+        boolean waterMark = SharedPreferencesController.getInstance(this).spGetBoolean(ADD_WATER_MARK);
 
         mSwitch.setChecked(waterMark);
 
@@ -54,6 +56,6 @@ public class SettingsActivity extends AppCompatActivity implements View.OnClickL
 
     @Override
     public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-        SharedPreferencesController.getInstance(this).spPutBoolean("add_water_mark", isChecked);
+        SharedPreferencesController.getInstance(this).spPutBoolean(ADD_WATER_MARK, isChecked);
     }
 }

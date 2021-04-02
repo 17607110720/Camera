@@ -69,14 +69,14 @@
 
 
         <TextView
-            android:id="@+id/switch_mode_4_3"
+            android:id="@+id/switch_mode_pic"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="拍照  "
             android:textColor="@color/yellow" />
 
         <TextView
-            android:id="@+id/switch_mode_16_9"
+            android:id="@+id/switch_mode_video"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="  录像"

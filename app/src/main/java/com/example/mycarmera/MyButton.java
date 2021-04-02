@@ -5,12 +5,15 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.util.AttributeSet;
+import android.view.MotionEvent;
 import android.view.View;
 
 import androidx.annotation.Nullable;
 
 public class MyButton extends View {
     public Paint mPaint;
+
+    private int mCurrentMode = CameraConstant.PHOTO_MODE;
 
 
     public MyButton(Context context) {//new
@@ -45,14 +48,30 @@ public class MyButton extends View {
 
     }
 
+    public void setCurrentMode(int currentMode) {
+        mCurrentMode = currentMode;
+        invalidate();
+    }
+
     public MyCameraButtonClickListener myCameraButtonClickListener;
 
     public interface MyCameraButtonClickListener {
-        void onMyCameraButtonClick();
+        void onMyCameraButtonClick(int mode);
     }
 
     public void setOnBaseViewClickListener(MyCameraButtonClickListener lister) {
         myCameraButtonClickListener = lister;
     }
 
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        switch (event.getAction()) {
+            case MotionEvent.ACTION_UP:
+                if (myCameraButtonClickListener != null) {
+                    myCameraButtonClickListener.onMyCameraButtonClick(mCurrentMode);
+                }
+                break;
+        }
+        return true;
+    }
 }

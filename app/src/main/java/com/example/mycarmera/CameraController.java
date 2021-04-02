@@ -11,7 +11,6 @@ import android.graphics.BitmapRegionDecoder;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ImageFormat;
-import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
@@ -52,6 +51,7 @@ import java.util.Date;
 import java.util.List;
 
 import static android.content.ContentValues.TAG;
+import static com.example.mycarmera.CameraConstant.ADD_WATER_MARK;
 
 @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
 public class CameraController {
@@ -69,6 +69,7 @@ public class CameraController {
     private CaptureRequest mPreviewRequest;
     private File mFile;
 
+
     private CameraManager manager;
 
     private Activity mActivity;
@@ -78,6 +79,7 @@ public class CameraController {
     private MediaRecorder mMediaRecorder;
     private HandlerThread mBackgroundThread;
     private Handler mBackgroundHandler;
+    private int mCurrentMode = CameraConstant.PHOTO_MODE;
 
 
     public CameraController(Activity activity, AutoFitTextureView textureView) {
@@ -91,6 +93,18 @@ public class CameraController {
         mBackgroundThread.start();
         mBackgroundHandler = new Handler(mBackgroundThread.getLooper());
     }
+    public void stopBackgroundThread() {
+        if (mBackgroundThread != null) {
+            mBackgroundThread.quitSafely();
+            try {
+                mBackgroundThread.join();
+                mBackgroundThread = null;
+                mBackgroundHandler = null;
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }
 
 
     //mStateCallback是相机状态回调
@@ -99,9 +113,10 @@ public class CameraController {
         @Override
         public void onOpened(@NonNull CameraDevice cameraDevice) {
             mCameraDevice = cameraDevice;
+            Log.d("mCameraDevice","mCameraDevice:::"+mCameraDevice);
 //            createImagerReader();
             choosePreviewAndCaptureSize();
-            createCameraSession();//打开相机成功的话，获取CameraDevice，然后创建会话--createCameraPreviewSession()
+            createCameraPreviewSession();//打开相机成功的话，获取CameraDevice，然后创建会话--createCameraPreviewSession()
         }
 
         @Override
@@ -130,14 +145,17 @@ public class CameraController {
     };
 
 
-    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
     public void openCamera() throws CameraAccessException {
         if (ContextCompat.checkSelfPermission(mActivity, Manifest.permission.CAMERA)
                 != PackageManager.PERMISSION_GRANTED) {
 //            requestCameraPermission();
             return;
         }
-        mMediaRecorder = new MediaRecorder();
+//        Log.d("mCurrentMode",""+mCurrentMode);
+//        if (mCurrentMode == CameraConstant.VIDEO_MODE) {
+            mMediaRecorder = new MediaRecorder();
+//        }
+
         //获取CameraManager对象，然后真正打开相机
         //打开相机，第一个参数指示打开哪个摄像头，第二个参数stateCallback为相机的状态回调接口，第三个参数用来确定Callback在哪个线程执行，为null的话就在当前线程执行
         manager.openCamera(mCameraId, mStateCallback, mBackgroundHandler);
@@ -177,12 +195,15 @@ public class CameraController {
 
     };
 
-    private void createCameraSession() {
+    private void createCameraPreviewSession() {
         try {
             SurfaceTexture texture = mPreviewTexture.getSurfaceTexture();//通过mTextureView获取SurfaceTexture
             texture.setDefaultBufferSize(mPreviewSize.getWidth(), mPreviewSize.getHeight());////设置TextureView的缓冲区大小
             //获取Surface显示预览数据
             Surface surface = new Surface(texture);
+
+//            Log.d("mCameraDevice","mCameraDevice:"+mCameraDevice);
+
             mPreviewRequestBuilder
                     = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);////创建TEMPLATE_PREVIEW预览CaptureRequest.Builder
             mPreviewRequestBuilder.addTarget(surface);//CaptureRequest.Builder中添加Surface，即mTextureView获取创建的Surface
@@ -232,7 +253,7 @@ public class CameraController {
         byte[] bytes = new byte[buffer.remaining()];
         buffer.get(bytes);
 
-        boolean waterMark = SharedPreferencesController.getInstance(mActivity).spGetBoolean("add_water_mark");
+        boolean waterMark = SharedPreferencesController.getInstance(mActivity).spGetBoolean(ADD_WATER_MARK);
 
         if (waterMark) {
             saveWithWaterMark(bytes, mImage);
@@ -362,8 +383,8 @@ public class CameraController {
 
 
     public void takepicture() {
-        //拍照数据会由imageSaver处理，保存到文件，
-        mFile = new File(Environment.getExternalStorageDirectory(), "DCIM/Camera/" + System.currentTimeMillis() + ".jpg");
+//        //拍照数据会由imageSaver处理，保存到文件，
+//        mFile = new File(Environment.getExternalStorageDirectory(),  System.currentTimeMillis() + ".jpg");
 
         CaptureRequest.Builder captureBuilder = null;
         try {
@@ -410,7 +431,7 @@ public class CameraController {
         //重新选择大小
         choosePreviewAndCaptureSize();
         //起预览
-        createCameraSession();
+        createCameraPreviewSession();
 
     }
 
@@ -421,7 +442,7 @@ public class CameraController {
         //重新选择大小
         choosePreviewAndCaptureSize();
         //起预览
-        createCameraSession();
+        createCameraPreviewSession();
     }
 
 
@@ -571,28 +592,22 @@ public class CameraController {
     public void stopRecordingVideo() {
         // UI
         // Stop recording
-        if (mMediaRecorder != null) {
             mMediaRecorder.stop();
             mMediaRecorder.reset();
             mCameraCallback.stopRecordVideo();
 
-        }
 
         //mNextVideoAbsolutePath = null;
 //        startPreview();
         closeSession();
-//        choosePreviewAndCaptureSize();
-        createCameraSession();
+        choosePreviewAndCaptureSize();
+        createCameraPreviewSession();
 
     }
 
-    public void setVideoPath(File file) {
-        mFile = file;
-    }
 
     public void startRecordingVideo() {
         try {
-
             closeSession();//TODO 1 关闭预览session
             choosePreviewAndCaptureSize();//TODO 2 设置大小
             setUpMediaRecorder();//TODO 3 设置录像参数 MediaRecord
@@ -626,6 +641,7 @@ public class CameraController {
 
                 @Override
                 public void onConfigured(@NonNull CameraCaptureSession cameraCaptureSession) {
+
                     mCaptureSession = cameraCaptureSession;
                     updatePreview();
                     mCameraCallback.startRecordVideo();
@@ -657,6 +673,18 @@ public class CameraController {
         mMediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
         mMediaRecorder.prepare();
         Log.d("yanweitim", "setUpMediaRecorder prepare");
+    }
+
+
+    public void setCurrentMode(int currentMode) {
+        mCurrentMode = currentMode;
+    }
+    public void setTargetRatio(float ratio) {
+        mTargetRatio = ratio;
+    }
+
+    public void setPath(File file) {
+        mFile = file;
     }
 
     private CameraControllerInterFaceCallback mCameraCallback;
