@@ -7,7 +7,6 @@
     tools:context=".MainActivity">
 
 
-
     <com.example.mycarmera.AutoFitTextureView
         android:id="@+id/preview_view"
         android:layout_width="match_parent"
@@ -23,6 +22,15 @@
         android:layout_marginTop="20dp"
         android:background="@drawable/drawable_top_click"
         android:src="@mipmap/settings" />
+
+    <Switch
+        android:id="@+id/flash"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="80dp"
+        android:layout_marginTop="20dp"
+        android:text="闪光灯">
+    </Switch>
 
     <!--    <Button-->
     <!--        android:id="@+id/switch_camera_id"-->
@@ -79,7 +87,14 @@
             android:id="@+id/switch_mode_video"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="  录像"
+            android:text="  录像 "
+            android:textColor="@color/white" />
+
+        <TextView
+            android:id="@+id/switch_mode_slow_motion"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="  慢动作"
             android:textColor="@color/white" />
 
     </LinearLayout>
@@ -94,8 +109,7 @@
             android:id="@+id/myButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_centerHorizontal="true"
-            >
+            android:layout_centerHorizontal="true">
 
         </com.example.mycarmera.MyButton>
 
@@ -123,8 +137,7 @@
             android:layout_height="wrap_content"
             android:layout_centerVertical="true"
             android:layout_marginLeft="40dp"
-            android:visibility="gone"
-            >
+            android:visibility="gone">
 
         </com.example.mycarmera.MyButton>
 

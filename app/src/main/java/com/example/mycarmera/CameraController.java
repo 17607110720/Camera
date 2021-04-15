@@ -93,6 +93,7 @@ public class CameraController {
         mBackgroundThread.start();
         mBackgroundHandler = new Handler(mBackgroundThread.getLooper());
     }
+
     public void stopBackgroundThread() {
         if (mBackgroundThread != null) {
             mBackgroundThread.quitSafely();
@@ -113,7 +114,7 @@ public class CameraController {
         @Override
         public void onOpened(@NonNull CameraDevice cameraDevice) {
             mCameraDevice = cameraDevice;
-            Log.d("mCameraDevice","mCameraDevice:::"+mCameraDevice);
+            Log.d("mCameraDevice", "mCameraDevice:::" + mCameraDevice);
 //            createImagerReader();
             choosePreviewAndCaptureSize();
             createCameraPreviewSession();//打开相机成功的话，获取CameraDevice，然后创建会话--createCameraPreviewSession()
@@ -153,7 +154,7 @@ public class CameraController {
         }
 //        Log.d("mCurrentMode",""+mCurrentMode);
 //        if (mCurrentMode == CameraConstant.VIDEO_MODE) {
-            mMediaRecorder = new MediaRecorder();
+        mMediaRecorder = new MediaRecorder();
 //        }
 
         //获取CameraManager对象，然后真正打开相机
@@ -592,9 +593,9 @@ public class CameraController {
     public void stopRecordingVideo() {
         // UI
         // Stop recording
-            mMediaRecorder.stop();
-            mMediaRecorder.reset();
-            mCameraCallback.stopRecordVideo();
+        mMediaRecorder.stop();
+        mMediaRecorder.reset();
+        mCameraCallback.stopRecordVideo();
 
 
         //mNextVideoAbsolutePath = null;
@@ -668,17 +669,20 @@ public class CameraController {
         mMediaRecorder.setOutputFile(mFile.getPath());
         mMediaRecorder.setVideoEncodingBitRate(10000000);
         mMediaRecorder.setVideoFrameRate(30);
+        if (mCurrentMode == CameraConstant.SLOW_MOTION_MODE) {
+            mMediaRecorder.setCaptureRate(120);
+        }
         mMediaRecorder.setVideoSize(mVideoSize.getWidth(), mVideoSize.getHeight());
         mMediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
         mMediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
         mMediaRecorder.prepare();
-        Log.d("yanweitim", "setUpMediaRecorder prepare");
     }
 
 
     public void setCurrentMode(int currentMode) {
         mCurrentMode = currentMode;
     }
+
     public void setTargetRatio(float ratio) {
         mTargetRatio = ratio;
     }

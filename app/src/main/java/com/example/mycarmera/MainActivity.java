@@ -22,6 +22,7 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -56,6 +57,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private HandlerThread mBackgroundThread;
     private Handler mBackgroundHandler;
     private int mCurrentMode = CameraConstant.PHOTO_MODE;
+    private TextView slowMotionModeTextView;
+    private Switch flash;
 
 
     @Override
@@ -75,6 +78,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         myButton = findViewById(R.id.myButton);
         picModeTextView = findViewById(R.id.switch_mode_pic);
         videoModeTextView = findViewById(R.id.switch_mode_video);
+        slowMotionModeTextView = findViewById(R.id.switch_mode_slow_motion);
+
         ratio_4_3 = findViewById(R.id.switch_ratio4_3);
         ratio_16_9 = findViewById(R.id.switch_ratio16_9);
         ll_switch_ratio = findViewById(R.id.ll_switch_ratio);
@@ -83,11 +88,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         settings = findViewById(R.id.settings);
         goto_photo = findViewById(R.id.goto_photo);
         myVideoTakePicButton = findViewById(R.id.myVideoTakePicButton);
+        flash = findViewById(R.id.flash);
 
         goto_photo.setBackground(getDrawable(R.drawable.drawable_shape));
 
         picModeTextView.setOnClickListener(this);
         videoModeTextView.setOnClickListener(this);
+        slowMotionModeTextView.setOnClickListener(this);
         myButton.setOnBaseViewClickListener(this);
         ratio_4_3.setOnClickListener(this);
         ratio_16_9.setOnClickListener(this);
@@ -95,6 +102,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         settings.setOnClickListener(this);
         goto_photo.setOnClickListener(this);
         myVideoTakePicButton.setOnClickListener(this);
+//        flash.setChecked();
 
 
     }
@@ -106,6 +114,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         ratio_4_3.setTextColor(Color.YELLOW);
         ratio_16_9.setTextColor(Color.WHITE);
         videoModeTextView.setTextColor(Color.WHITE);
+        slowMotionModeTextView.setTextColor(Color.WHITE);
         picModeTextView.setTextColor(Color.YELLOW);
 
         mCurrentMode = CameraConstant.PHOTO_MODE;
@@ -125,9 +134,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     //录像模式
     private void videoMode() {
         if (mCurrentMode == CameraConstant.VIDEO_MODE) return;
-        ll_switch_ratio.setVisibility(View.GONE);//录像模式下默认16：9，不允许切换比例
+        ll_switch_ratio.setVisibility(View.GONE);//慢动作/录像模式下默认16：9，不允许切换比例
         picModeTextView.setTextColor(Color.WHITE);
         videoModeTextView.setTextColor(Color.YELLOW);
+        slowMotionModeTextView.setTextColor(Color.WHITE);
 
         mCurrentMode = CameraConstant.VIDEO_MODE;
         myButton.setCurrentMode(mCurrentMode);
@@ -141,6 +151,30 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         } catch (CameraAccessException e) {
             e.printStackTrace();
         }
+    }
+
+    //慢动作模式
+    private void slowMotionMode() {
+        if (mCurrentMode == CameraConstant.SLOW_MOTION_MODE) return;
+        ll_switch_ratio.setVisibility(View.GONE);//慢动作/录像模式下默认16：9，不允许切换比例
+        picModeTextView.setTextColor(Color.WHITE);
+        videoModeTextView.setTextColor(Color.WHITE);
+        slowMotionModeTextView.setTextColor(Color.YELLOW);
+
+        mCurrentMode = CameraConstant.SLOW_MOTION_MODE;
+        myButton.setCurrentMode(mCurrentMode);
+
+        mIsRecordingVideo = false;
+        mCameraController.closeCamera();
+        mCameraController.setCurrentMode(mCurrentMode);
+        mCameraController.setTargetRatio(CameraConstant.RATIO_SIXTEEN_NINE);
+        try {
+            mCameraController.openCamera();
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+        }
+
+
     }
 
     //4：3
@@ -178,6 +212,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             case R.id.switch_mode_video:
                 videoMode();
                 break;
+            case R.id.switch_mode_slow_motion:
+                slowMotionMode();
+                break;
             case R.id.switch_ratio4_3:
                 ratio_4_3();
                 break;
@@ -196,9 +233,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
     }
 
+
     //进入相册
     private void gotoPhoto() {
-
         Intent intent = new Intent(Intent.ACTION_VIEW);
         intent.setType("image/*");
         startActivity(intent);
@@ -312,6 +349,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 takePicture();
                 break;
             case CameraConstant.VIDEO_MODE:
+            case CameraConstant.SLOW_MOTION_MODE:
                 takeVideo();
                 break;
 
@@ -319,7 +357,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private void takePicture() {
-        mFile = new File(Environment.getExternalStorageDirectory(),  System.currentTimeMillis() + ".jpg");
+        mFile = new File(Environment.getExternalStorageDirectory(), System.currentTimeMillis() + ".jpg");
         mCameraController.setPath(mFile);
         mCameraController.takepicture();
     }
