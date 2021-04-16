@@ -141,7 +141,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         mCameraController.setTargetRatio(CameraConstant.RATIO_FOUR_THREE);
         mCameraController.openCamera();
 
-
     }
 
     //录像模式
