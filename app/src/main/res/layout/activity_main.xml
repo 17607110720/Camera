@@ -4,6 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/colorBlack"
     tools:context=".MainActivity">
 
 
@@ -11,35 +12,35 @@
         android:id="@+id/preview_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_gravity="center"></com.example.mycarmera.AutoFitTextureView>
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="60dp"></com.example.mycarmera.AutoFitTextureView>
+
+    <LinearLayout
+        android:id="@+id/ll_top"
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:layout_gravity="top"
+        android:orientation="horizontal"
+        android:padding="10dp">
 
 
-    <ImageView
-        android:id="@+id/settings"
-        android:layout_width="30dp"
-        android:layout_height="30dp"
-        android:layout_marginLeft="30dp"
-        android:layout_marginTop="20dp"
-        android:background="@drawable/drawable_top_click"
-        android:src="@mipmap/settings" />
+        <ImageView
+            android:id="@+id/settings"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:background="@drawable/drawable_top_click"
+            android:padding="5dp"
+            android:src="@mipmap/settings" />
 
-    <Switch
-        android:id="@+id/flash"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginLeft="80dp"
-        android:layout_marginTop="20dp"
-        android:text="闪光灯">
-    </Switch>
+        <Switch
+            android:id="@+id/flash"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:padding="5dp"
+            android:text="闪光灯"
 
-    <!--    <Button-->
-    <!--        android:id="@+id/switch_camera_id"-->
-    <!--        android:layout_width="wrap_content"-->
-    <!--        android:layout_height="wrap_content"></Button>-->
-    <!--    &lt;!&ndash;        android:layout_gravity="bottom|right"&ndash;&gt;-->
-    <!--    android:text="反转镜头"-->
-
-    <!--    />-->
+            android:textColor="@color/white"></Switch>
+    </LinearLayout>
 
 
     <LinearLayout
@@ -67,79 +68,130 @@
 
     </LinearLayout>
 
-    <LinearLayout
-        android:id="@+id/ll_switch_mode"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|center"
-        android:layout_margin="80dp"
-        android:orientation="horizontal">
+    <!--    <LinearLayout-->
+    <!--        android:id="@+id/ll_switch_mode"-->
+    <!--        android:layout_width="wrap_content"-->
+    <!--        android:layout_height="wrap_content"-->
+    <!--        android:layout_gravity="bottom|center"-->
+    <!--        android:layout_margin="80dp"-->
+    <!--        android:orientation="horizontal">-->
 
 
-        <TextView
-            android:id="@+id/switch_mode_pic"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="拍照  "
-            android:textColor="@color/yellow" />
+    <!--        <TextView-->
+    <!--            android:id="@+id/switch_mode_pic"-->
+    <!--            android:layout_width="wrap_content"-->
+    <!--            android:layout_height="wrap_content"-->
+    <!--            android:text="拍照  "-->
+    <!--            android:textColor="@color/yellow" />-->
 
-        <TextView
-            android:id="@+id/switch_mode_video"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="  录像 "
-            android:textColor="@color/white" />
+    <!--        <TextView-->
+    <!--            android:id="@+id/switch_mode_video"-->
+    <!--            android:layout_width="wrap_content"-->
+    <!--            android:layout_height="wrap_content"-->
+    <!--            android:text="  录像 "-->
+    <!--            android:textColor="@color/white" />-->
 
-        <TextView
-            android:id="@+id/switch_mode_slow_motion"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="  慢动作"
-            android:textColor="@color/white" />
+    <!--        <TextView-->
+    <!--            android:id="@+id/switch_mode_slow_motion"-->
+    <!--            android:layout_width="wrap_content"-->
+    <!--            android:layout_height="wrap_content"-->
+    <!--            android:text="  慢动作"-->
+    <!--            android:textColor="@color/white" />-->
 
-    </LinearLayout>
+    <!--    </LinearLayout>-->
 
     <RelativeLayout
         android:id="@+id/ll_bottom"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|center">
+        android:layout_height="180dp"
+        android:layout_gravity="bottom"
+        android:layout_marginBottom="20dp"
+        android:background="@color/just_gray_alpha">
 
-        <com.example.mycarmera.MyButton
-            android:id="@+id/myButton"
+        <LinearLayout
+            android:id="@+id/ll_switch_mode"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_centerHorizontal="true">
+            android:layout_alignParentTop="true"
+            android:layout_centerHorizontal="true"
+            android:orientation="horizontal"
+            android:paddingTop="10dp">
 
-        </com.example.mycarmera.MyButton>
+            <TextView
+                android:id="@+id/switch_mode_pic"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="拍照  "
+                android:textColor="@color/yellow"
+                android:textSize="15sp" />
 
-        <ImageButton
-            android:id="@+id/switch_camera_id"
-            android:layout_width="wrap_content"
+            <TextView
+                android:id="@+id/switch_mode_video"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="  录像 "
+                android:textColor="@color/white"
+                android:textSize="15sp" />
+
+
+            <TextView
+                android:id="@+id/switch_mode_slow_motion"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="  慢动作"
+                android:textColor="@color/white"
+                android:textSize="15sp" />
+
+
+        </LinearLayout>
+
+        <RelativeLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_centerVertical="true"
-            android:layout_marginLeft="300dp"
-            android:background="#2E2E2E"
-            android:src="@android:drawable/ic_popup_sync">
+            android:layout_alignParentBottom="true"
+            android:layout_marginBottom="50dp">
 
-        </ImageButton>
+            <ImageView
+                android:id="@+id/goto_photo"
+                android:layout_width="60dp"
+                android:layout_height="60dp"
+                android:layout_centerVertical="true"
+                android:layout_marginLeft="40dp"
+                android:padding="1dp" ></ImageView>
 
-        <ImageView
-            android:id="@+id/goto_photo"
-            android:layout_width="60dp"
-            android:layout_height="60dp"
-            android:layout_centerVertical="true"
-            android:layout_marginLeft="40dp"></ImageView>
+            <com.example.mycarmera.MyButton
+                android:id="@+id/myButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerInParent="true">
 
-        <com.example.mycarmera.MyButton
-            android:id="@+id/myVideoTakePicButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_centerVertical="true"
-            android:layout_marginLeft="40dp"
-            android:visibility="gone">
+            </com.example.mycarmera.MyButton>
 
-        </com.example.mycarmera.MyButton>
+            <ImageButton
+                android:id="@+id/switch_camera_id"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentRight="true"
+                android:layout_centerVertical="true"
+                android:layout_marginRight="60dp"
+                android:background="#2E2E2E"
+                android:src="@android:drawable/ic_popup_sync">
+
+            </ImageButton>
+        </RelativeLayout>
+
+
+
+
+<!--        <com.example.mycarmera.MyButton-->
+<!--            android:id="@+id/myVideoTakePicButton"-->
+<!--            android:layout_width="wrap_content"-->
+<!--            android:layout_height="wrap_content"-->
+<!--            android:layout_centerVertical="true"-->
+<!--            android:layout_marginLeft="40dp"-->
+<!--            android:visibility="gone">-->
+
+<!--        </com.example.mycarmera.MyButton>-->
 
     </RelativeLayout>
 

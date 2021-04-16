@@ -62,7 +62,7 @@ public class CameraController {
     private static final int BACK_CAMERA_ID = 0;
     private static final int FRONT_CAMERA_ID = 1;
     private Size mPreviewSize = new Size(1440, 1080);//预览尺寸
-    private Size mCaptureSize = new Size(1440, 1080);//拍照尺寸
+    private Size mCaptureSize = new Size(4000, 3000);//拍照尺寸
     private Size mVideoSize = new Size(1920, 1080);//录像尺寸
 
 
@@ -158,10 +158,9 @@ public class CameraController {
 //            requestCameraPermission();
             return;
         }
-//        Log.d("mCurrentMode",""+mCurrentMode);
-//        if (mCurrentMode == CameraConstant.VIDEO_MODE) {
-        mMediaRecorder = new MediaRecorder();
-//        }
+        if (mCurrentMode == CameraConstant.VIDEO_MODE || mCurrentMode == CameraConstant.SLOW_MOTION_MODE) {
+            mMediaRecorder = new MediaRecorder();
+        }
 
         try {
             //获取CameraManager对象，然后真正打开相机
@@ -175,10 +174,9 @@ public class CameraController {
 
     private void createImagerReader() {
         mImageReader = ImageReader.newInstance(mCaptureSize.getWidth(), mCaptureSize.getHeight(),
-                ImageFormat.JPEG, /*maxImages*/2);
+                ImageFormat.JPEG, /*maxImages*/1);
         mImageReader.setOnImageAvailableListener(
                 mOnImageAvailableListener, mBackgroundHandler);
-
         mActivity.runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -540,12 +538,10 @@ public class CameraController {
         Size[] captureSizeMap = map.getOutputSizes(ImageFormat.JPEG);
         int screenWidth = getScreenWidth(mActivity.getApplicationContext());
         mPreviewSize = getPreviewSize(previewSizeMap, mTargetRatio, screenWidth);
-//        if (mCurrentMode == CameraConstant.VIDEO_MODE) {
-        mVideoSize = getVideoSize(mTargetRatio, previewSizeMap);
-        ;
-//        }
+        if (mCurrentMode == CameraConstant.VIDEO_MODE || mCurrentMode == CameraConstant.SLOW_MOTION_MODE) {
+            mVideoSize = getVideoSize(mTargetRatio, previewSizeMap);
 
-
+        }
         mCaptureSize = getPictureSize(mTargetRatio, captureSizeMap);
 
         createImagerReader();
@@ -652,7 +648,6 @@ public class CameraController {
         // Stop recording
         mMediaRecorder.stop();
         mMediaRecorder.reset();
-        mCameraCallback.stopRecordVideo();
 
 
         //mNextVideoAbsolutePath = null;
@@ -686,7 +681,7 @@ public class CameraController {
             Surface recorderSurface = mMediaRecorder.getSurface();
             surfaces.add(recorderSurface);
             mPreviewRequestBuilder.addTarget(recorderSurface);
-
+//
 //            //录像时的拍照
 //            Surface picSurface = mImageReader.getSurface();
 //            surfaces.add(picSurface);
@@ -702,7 +697,6 @@ public class CameraController {
 
                     mCaptureSession = cameraCaptureSession;
                     updatePreview();
-                    mCameraCallback.startRecordVideo();
                     mMediaRecorder.start();
                 }
 
@@ -751,9 +745,7 @@ public class CameraController {
 
 
     interface CameraControllerInterFaceCallback {
-        void startRecordVideo();
 
-        void stopRecordVideo();
 
         void onThumbnailCreated(Bitmap bitmap);
     }

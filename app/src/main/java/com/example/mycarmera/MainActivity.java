@@ -50,12 +50,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private TextView ratio_4_3;
     private TextView ratio_16_9;
     private MyButton myButton;
+//    private MyButton myVideoTakePicButton;
     private LinearLayout ll_switch_ratio;
     private LinearLayout ll_switch_mode;
     private View switch_camera_id;
     private ImageView settings;
     private ImageView goto_photo;
-    private View myVideoTakePicButton;
     private MyOrientationEventListener mOrientationListener;
     private int mPhoneOrientation;
     public static final int ORIENTATION_HYSTERESIS = 5;
@@ -101,7 +101,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         switch_camera_id = findViewById(R.id.switch_camera_id);
         settings = findViewById(R.id.settings);
         goto_photo = findViewById(R.id.goto_photo);
-        myVideoTakePicButton = findViewById(R.id.myVideoTakePicButton);
+//        myVideoTakePicButton = findViewById(R.id.myVideoTakePicButton);
         flash = findViewById(R.id.flash);
 
         goto_photo.setBackground(getDrawable(R.drawable.drawable_shape));
@@ -110,12 +110,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         videoModeTextView.setOnClickListener(this);
         slowMotionModeTextView.setOnClickListener(this);
         myButton.setOnBaseViewClickListener(this);
+//        myVideoTakePicButton.setOnBaseViewClickListener(this);
         ratio_4_3.setOnClickListener(this);
         ratio_16_9.setOnClickListener(this);
         switch_camera_id.setOnClickListener(this);
         settings.setOnClickListener(this);
         goto_photo.setOnClickListener(this);
-        myVideoTakePicButton.setOnClickListener(this);
         flash.setOnCheckedChangeListener(this);
 
 
@@ -154,7 +154,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         mCurrentMode = CameraConstant.VIDEO_MODE;
         myButton.setCurrentMode(mCurrentMode);
 
-        mIsRecordingVideo = false;
+        Log.d("videoMode", "" + mIsRecordingVideo);
+
+        myButton.setVideoRecordingState(false);
         mCameraController.closeCamera();
         mCameraController.setCurrentMode(mCurrentMode);
         mCameraController.setTargetRatio(CameraConstant.RATIO_SIXTEEN_NINE);
@@ -172,7 +174,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         mCurrentMode = CameraConstant.SLOW_MOTION_MODE;
         myButton.setCurrentMode(mCurrentMode);
 
-        mIsRecordingVideo = false;
+        myButton.setVideoRecordingState(false);
         mCameraController.closeCamera();
         mCameraController.setCurrentMode(mCurrentMode);
         mCameraController.setTargetRatio(CameraConstant.RATIO_SIXTEEN_NINE);
@@ -256,7 +258,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         if (mPreviewView.isAvailable()) {
             //mTextureView已经创建，SurfaceTexture已经有效，则直接openCamera，用于屏幕熄灭等情况，这时onSurfaceTextureAvailable不会回调。
             mCameraController.openCamera();
-
             //SurfaceTexture处于无效状态中，则通过SurfaceTextureListener确保surface准备好。
         } else {//无效就加入一个监听SufaceTextureListener，通过回调确保surfaceTexture有效，然后同样openCamera()。
             mPreviewView.setSurfaceTextureListener(mSurfaceTextureListener);
@@ -295,10 +296,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     protected void onPause() {
         super.onPause();
         mOrientationListener.disable();//禁用方向监听
-
         if (mIsRecordingVideo) {
             mIsRecordingVideo = false;
-            mCameraController.stopRecordingVideo();
+            myButton.setVideoRecordingState(mIsRecordingVideo);
+            stopRecordVideo();
         }
         mCameraController.closeCamera();
         mCameraController.stopBackgroundThread();
@@ -307,25 +308,31 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
 
-    @Override
     public void startRecordVideo() {
+
+        mFile = new File(Environment.getExternalStorageDirectory(), System.currentTimeMillis() + ".mp4");
+        mCameraController.setPath(mFile);
+
         ll_switch_mode.setVisibility(View.GONE);//录像时不能切换模式
         switch_camera_id.setVisibility(View.GONE);//录像时不能前后置切换
         settings.setVisibility(View.GONE);//录像时不能设置水印
-        myVideoTakePicButton.setVisibility(View.VISIBLE);//录像时可以进行拍照
+//        myVideoTakePicButton.setVisibility(View.VISIBLE);//录像时可以进行拍照
         goto_photo.setVisibility(View.GONE);//录像时不能进入相册查看缩略图
+        flash.setVisibility(View.GONE);//录像时不能控制闪光灯
+        mCameraController.startRecordingVideo();
 
     }
 
-    @Override
     public void stopRecordVideo() {
+
         ll_switch_mode.setVisibility(View.VISIBLE);//录像结束才能切换模式
         switch_camera_id.setVisibility(View.VISIBLE);//录像结束后才能前后置切换
         settings.setVisibility(View.VISIBLE);//录像结束后才能设置水印
-        myVideoTakePicButton.setVisibility(View.GONE);//录像结束关闭录像时拍照按钮
+//        myVideoTakePicButton.setVisibility(View.GONE);//录像结束关闭录像时拍照按钮
         goto_photo.setVisibility(View.VISIBLE);//录像结束才能进入相册查看缩略图
-        Toast.makeText(this, "录像储存位置：" + Environment.getExternalStorageDirectory() + "/" + System.currentTimeMillis() + ".mp4", Toast.LENGTH_LONG).show();
-
+        flash.setVisibility(View.VISIBLE);//录像结束才能控制闪光灯
+        mCameraController.stopRecordingVideo();
+        Toast.makeText(this, "录像储存位置：" + mFile, Toast.LENGTH_LONG).show();
 
     }
 
@@ -369,18 +376,19 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private void takePicture() {
         mFile = new File(Environment.getExternalStorageDirectory(), System.currentTimeMillis() + ".jpg");
         mCameraController.setPath(mFile);
+        myButton.startPictureAnimator();
         mCameraController.takepicture();
     }
 
     private void takeVideo() {
         if (mIsRecordingVideo) {
             mIsRecordingVideo = false;
-            mCameraController.stopRecordingVideo();
+            myButton.setVideoRecordingState(mIsRecordingVideo);
+            stopRecordVideo();
         } else {
-            mFile = new File(Environment.getExternalStorageDirectory(), System.currentTimeMillis() + ".mp4");
-            mCameraController.setPath(mFile);
             mIsRecordingVideo = true;
-            mCameraController.startRecordingVideo();
+            myButton.setVideoRecordingState(mIsRecordingVideo);
+            startRecordVideo();
         }
     }
 
