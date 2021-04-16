@@ -11,6 +11,7 @@ import android.graphics.BitmapRegionDecoder;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ImageFormat;
+import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
@@ -33,6 +34,7 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.util.Log;
 import android.util.Size;
+import android.view.OrientationEventListener;
 import android.view.Surface;
 import android.widget.Toast;
 
@@ -56,7 +58,9 @@ import static com.example.mycarmera.CameraConstant.ADD_WATER_MARK;
 @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
 public class CameraController {
     private AutoFitTextureView mPreviewTexture;
-    private String mCameraId = "0";
+    private int mCameraId = 0;
+    private static final int BACK_CAMERA_ID = 0;
+    private static final int FRONT_CAMERA_ID = 1;
     private Size mPreviewSize = new Size(1440, 1080);//预览尺寸
     private Size mCaptureSize = new Size(1440, 1080);//拍照尺寸
     private Size mVideoSize = new Size(1920, 1080);//录像尺寸
@@ -80,6 +84,8 @@ public class CameraController {
     private HandlerThread mBackgroundThread;
     private Handler mBackgroundHandler;
     private int mCurrentMode = CameraConstant.PHOTO_MODE;
+    private int mPhoneOrientation;
+    private int mSensorOrientation;
 
 
     public CameraController(Activity activity, AutoFitTextureView textureView) {
@@ -146,7 +152,7 @@ public class CameraController {
     };
 
 
-    public void openCamera() throws CameraAccessException {
+    public void openCamera() {
         if (ContextCompat.checkSelfPermission(mActivity, Manifest.permission.CAMERA)
                 != PackageManager.PERMISSION_GRANTED) {
 //            requestCameraPermission();
@@ -157,9 +163,13 @@ public class CameraController {
         mMediaRecorder = new MediaRecorder();
 //        }
 
-        //获取CameraManager对象，然后真正打开相机
-        //打开相机，第一个参数指示打开哪个摄像头，第二个参数stateCallback为相机的状态回调接口，第三个参数用来确定Callback在哪个线程执行，为null的话就在当前线程执行
-        manager.openCamera(mCameraId, mStateCallback, mBackgroundHandler);
+        try {
+            //获取CameraManager对象，然后真正打开相机
+            //打开相机，第一个参数指示打开哪个摄像头，第二个参数stateCallback为相机的状态回调接口，第三个参数用来确定Callback在哪个线程执行，为null的话就在当前线程执行
+            manager.openCamera(String.valueOf(mCameraId), mStateCallback, mBackgroundHandler);
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+        }
     }
 
 
@@ -268,11 +278,11 @@ public class CameraController {
     private void saveWithWaterMark(byte[] bytes, Image mImage) {
         Bitmap bitmapStart = BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
 
-//        Matrix matrix = new Matrix();
-//        matrix.postRotate(getJpegRotation(mCameraId, mPhoneOrientation));
-//        if (lenFaceFront()) {
-//            matrix.postScale(-1, 1);
-//        }
+        Matrix matrix = new Matrix();
+        matrix.postRotate(getJpegRotation(mCameraId, mPhoneOrientation));
+        if (lenFaceFront()) {
+            matrix.postScale(-1, 1);
+        }
 
         Bitmap bitmapSrc = Bitmap.createBitmap(bitmapStart, 0, 0, bitmapStart.getWidth(), bitmapStart.getHeight(), null, true);
         mCameraCallback.onThumbnailCreated(bitmapSrc);//添加缩略图
@@ -284,11 +294,11 @@ public class CameraController {
         paintText.setColor(Color.argb(80, 255, 255, 255));
 
         paintText.setTextSize(500);
-//        if (lenFaceFront()) {
-//            paintText.setTextSize(60);
-//        } else {
-//            paintText.setTextSize(150);
-//        }
+        if (lenFaceFront()) {
+            paintText.setTextSize(60);
+        } else {
+            paintText.setTextSize(150);
+        }
 
 
         paintText.setDither(true);
@@ -350,11 +360,11 @@ public class CameraController {
         final Rect rect = new Rect((w - st) / 2, (h - st) / 2, (w + st) / 2, (h + st) / 2);
 
         Bitmap showThumbnail = decoder.decodeRegion(rect, opt);
-//        Matrix matrix = new Matrix();
-//        matrix.postRotate(getJpegRotation(mCameraId, mPhoneOrientation));
-//        if (lenFaceFront()) {
-//            matrix.postScale(-1, 1);
-//        }
+        Matrix matrix = new Matrix();
+        matrix.postRotate(getJpegRotation(mCameraId, mPhoneOrientation));
+        if (lenFaceFront()) {
+            matrix.postScale(-1, 1);
+        }
         Bitmap srcBitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.length, null);
         Bitmap bitmapThumbnail = Bitmap.createBitmap(showThumbnail, 0, 0, showThumbnail.getWidth(), showThumbnail.getHeight(), null, true);
         mCameraCallback.onThumbnailCreated(bitmapThumbnail);//添加缩略图
@@ -382,40 +392,73 @@ public class CameraController {
         }
     }
 
-
-    public void takepicture() {
-//        //拍照数据会由imageSaver处理，保存到文件，
-//        mFile = new File(Environment.getExternalStorageDirectory(),  System.currentTimeMillis() + ".jpg");
-
-        CaptureRequest.Builder captureBuilder = null;
+    public boolean lenFaceFront() {
+        CameraCharacteristics cameraInfo = null;
         try {
-            //设置TEMPLATE_STILL_CAPTURE拍照CaptureRequest.Builder
-            captureBuilder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
-            //添加拍照mImageReader为Surface
-            captureBuilder.addTarget(mImageReader.getSurface());
-//
+            cameraInfo = manager.getCameraCharacteristics(String.valueOf(mCameraId));
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+        }
+        if (cameraInfo.get(CameraCharacteristics.LENS_FACING) ==
+                CameraCharacteristics.LENS_FACING_FRONT) {//front camera
+            return true;
+        }
+
+        return false;
+    }
+
+    public int getJpegRotation(int cameraId, int orientation) {
+        int rotation = 0;
+        if (orientation == OrientationEventListener.ORIENTATION_UNKNOWN) {
+            orientation = 0;
+        }
+        if (cameraId == -1) {
+            cameraId = 0;
+        }
+        CameraCharacteristics cameraInfo = null;
+        try {
+            cameraInfo = manager.getCameraCharacteristics(String.valueOf(cameraId));
         } catch (CameraAccessException e) {
             e.printStackTrace();
         }
 
+        if (cameraInfo.get(CameraCharacteristics.LENS_FACING) ==
+                CameraCharacteristics.LENS_FACING_FRONT) {//front camera
+            rotation = (mSensorOrientation - orientation + 360) % 360;
+        } else {// back-facing camera
+            rotation = (mSensorOrientation + orientation + 360) % 360;
+        }
+        return rotation;
+    }
 
-        //拍照流程执行完成回调
-        //然后通过CameraCaptureSession.CaptureCallback回调解除锁定，回复预览界面
-        CameraCaptureSession.CaptureCallback CaptureCallback
-                = new CameraCaptureSession.CaptureCallback() {
-
-            // 拍照完成时激发该方法
-            @Override
-            public void onCaptureCompleted(@NonNull CameraCaptureSession session,
-                                           @NonNull CaptureRequest request,
-                                           @NonNull TotalCaptureResult result) {
-                //提示拍照图片已经保存
-                Toast.makeText(mActivity, "Saved: " + mFile, Toast.LENGTH_LONG).show();
-                Log.d(TAG, mFile.toString());
-            }
-        };
-
+    public void takepicture() {
         try {
+//        //拍照数据会由imageSaver处理，保存到文件，
+            //设置TEMPLATE_STILL_CAPTURE拍照CaptureRequest.Builder
+
+            final CaptureRequest.Builder captureBuilder =
+                    mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
+            //添加拍照mImageReader为Surface
+            captureBuilder.addTarget(mImageReader.getSurface());
+
+
+            //拍照流程执行完成回调
+            //然后通过CameraCaptureSession.CaptureCallback回调解除锁定，回复预览界面
+            CameraCaptureSession.CaptureCallback CaptureCallback
+                    = new CameraCaptureSession.CaptureCallback() {
+
+                // 拍照完成时激发该方法
+                @Override
+                public void onCaptureCompleted(@NonNull CameraCaptureSession session,
+                                               @NonNull CaptureRequest request,
+                                               @NonNull TotalCaptureResult result) {
+                    //提示拍照图片已经保存
+                    Toast.makeText(mActivity, "Saved: " + mFile, Toast.LENGTH_LONG).show();
+                    Log.d(TAG, mFile.toString());
+                }
+            };
+            captureBuilder.set(CaptureRequest.JPEG_ORIENTATION, getJpegRotation(mCameraId, mPhoneOrientation));//90 0 180 270
+
 //            mCaptureSession.stopRepeating();//停止预览,停止任何一个正常进行的重复请求。
 //            mCaptureSession.abortCaptures();//中断Capture,尽可能快的取消当前队列中或正在处理中的所有捕捉请求。
             //重新Capture进行拍照，这时mImageReader的回调会执行并保存图片
@@ -427,23 +470,24 @@ public class CameraController {
 
     public void switch_16_9() {
         mTargetRatio = 1.777f;
-        closeSessionAndImageReader();
-//        closeCamera();
-        //重新选择大小
-        choosePreviewAndCaptureSize();
-        //起预览
-        createCameraPreviewSession();
-
+//        closeSessionAndImageReader();
+        closeCamera();
+//        重新选择大小
+//        choosePreviewAndCaptureSize();
+//        //起预览
+//        createCameraPreviewSession();
+        openCamera();
     }
 
     public void switch_4_3() {
         mTargetRatio = 1.333f;
-        closeSessionAndImageReader();
-//        closeCamera();
+//        closeSessionAndImageReader();
+        closeCamera();
         //重新选择大小
-        choosePreviewAndCaptureSize();
-        //起预览
-        createCameraPreviewSession();
+//        choosePreviewAndCaptureSize();
+//        //起预览
+//        createCameraPreviewSession();
+        openCamera();
     }
 
 
@@ -565,13 +609,26 @@ public class CameraController {
     public void switch_camera_id() {
         closeCamera();
         updateCameraId();
-        try {
-            openCamera();
-        } catch (CameraAccessException e) {
-            e.printStackTrace();
-        }
+        openCamera();
 
     }
+
+    //打开闪光灯
+    public void openFlashMode() {
+        mPreviewRequestBuilder.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_TORCH);
+        updatePreview();
+    }
+
+    //关闭闪光灯
+    public void closeFlashMode() {
+        mPreviewRequestBuilder.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_OFF);
+        updatePreview();
+    }
+
+    public void setPhoneDeviceDegree(int degree) {
+        mPhoneOrientation = degree;
+    }
+
 
     private void updateCameraId() {
         try {
@@ -581,9 +638,9 @@ public class CameraController {
             Integer facing = characteristics.get(CameraCharacteristics.LENS_FACING);
 
             if (facing != null && facing == CameraCharacteristics.LENS_FACING_FRONT) {
-                mCameraId = "0";//后置
+                mCameraId = BACK_CAMERA_ID;//后置
             } else {
-                mCameraId = "1";//前置
+                mCameraId = FRONT_CAMERA_ID;//前置
             }
         } catch (CameraAccessException e) {
             e.printStackTrace();
@@ -661,8 +718,6 @@ public class CameraController {
     }
 
     private void setUpMediaRecorder() throws IOException {
-        Log.d("yanweitim", "setUpMediaRecorder");
-
         mMediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
         mMediaRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
         mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
@@ -675,6 +730,7 @@ public class CameraController {
         mMediaRecorder.setVideoSize(mVideoSize.getWidth(), mVideoSize.getHeight());
         mMediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
         mMediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
+        mMediaRecorder.setOrientationHint(getJpegRotation(mCameraId, mPhoneOrientation));
         mMediaRecorder.prepare();
     }
 

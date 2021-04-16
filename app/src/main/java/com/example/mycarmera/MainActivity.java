@@ -1,5 +1,6 @@
 package com.example.mycarmera;
 
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -16,10 +17,12 @@ import android.os.Environment;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.util.Log;
+import android.view.OrientationEventListener;
 import android.view.TextureView;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+import android.widget.CompoundButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.Switch;
@@ -32,7 +35,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import java.io.File;
 
 @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
-public class MainActivity extends AppCompatActivity implements View.OnClickListener, CameraController.CameraControllerInterFaceCallback, MyButton.MyCameraButtonClickListener {
+public class MainActivity extends AppCompatActivity implements View.OnClickListener, CameraController.CameraControllerInterFaceCallback, MyButton.MyCameraButtonClickListener, CompoundButton.OnCheckedChangeListener {
 
     private AutoFitTextureView mPreviewView;
 
@@ -53,6 +56,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private ImageView settings;
     private ImageView goto_photo;
     private View myVideoTakePicButton;
+    private MyOrientationEventListener mOrientationListener;
+    private int mPhoneOrientation;
+    public static final int ORIENTATION_HYSTERESIS = 5;
+
 
     private HandlerThread mBackgroundThread;
     private Handler mBackgroundHandler;
@@ -67,10 +74,17 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         requestFullScreenActivity();
         setContentView(R.layout.activity_main);
         initView();
-        mCameraController = new CameraController(this, mPreviewView);
-        mCameraController.setCameraControllerInterFaceCallback(this);
+        registerOrientationLister();
 
+    }
 
+    private void registerOrientationLister() {
+        mOrientationListener = new MyOrientationEventListener(this);//方向旋转监听
+
+    }
+
+    private void initOrientationSensor() {
+        mOrientationListener.enable();//开始方向监听
     }
 
     private void initView() {
@@ -102,9 +116,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         settings.setOnClickListener(this);
         goto_photo.setOnClickListener(this);
         myVideoTakePicButton.setOnClickListener(this);
-//        flash.setChecked();
+        flash.setOnCheckedChangeListener(this);
 
 
+        mCameraController = new CameraController(this, mPreviewView);
+        mCameraController.setCameraControllerInterFaceCallback(this);
     }
 
     //拍照模式
@@ -123,11 +139,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         mCameraController.closeCamera();
         mCameraController.setCurrentMode(mCurrentMode);
         mCameraController.setTargetRatio(CameraConstant.RATIO_FOUR_THREE);
-        try {
-            mCameraController.openCamera();
-        } catch (CameraAccessException e) {
-            e.printStackTrace();
-        }
+        mCameraController.openCamera();
+
 
     }
 
@@ -146,11 +159,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         mCameraController.closeCamera();
         mCameraController.setCurrentMode(mCurrentMode);
         mCameraController.setTargetRatio(CameraConstant.RATIO_SIXTEEN_NINE);
-        try {
-            mCameraController.openCamera();
-        } catch (CameraAccessException e) {
-            e.printStackTrace();
-        }
+        mCameraController.openCamera();
     }
 
     //慢动作模式
@@ -168,11 +177,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         mCameraController.closeCamera();
         mCameraController.setCurrentMode(mCurrentMode);
         mCameraController.setTargetRatio(CameraConstant.RATIO_SIXTEEN_NINE);
-        try {
-            mCameraController.openCamera();
-        } catch (CameraAccessException e) {
-            e.printStackTrace();
-        }
+        mCameraController.openCamera();
 
 
     }
@@ -246,14 +251,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     protected void onResume() {
         super.onResume();
         mCameraController.startBackgroundThread();//开启一个后台线程处理相机数据
+
+        initOrientationSensor();//开始方向监听
         //判断TextureView是否有效，有效就直接openCamera()，
         if (mPreviewView.isAvailable()) {
-            try {
-                //mTextureView已经创建，SurfaceTexture已经有效，则直接openCamera，用于屏幕熄灭等情况，这时onSurfaceTextureAvailable不会回调。
-                mCameraController.openCamera();
-            } catch (CameraAccessException e) {
-                e.printStackTrace();
-            }
+            //mTextureView已经创建，SurfaceTexture已经有效，则直接openCamera，用于屏幕熄灭等情况，这时onSurfaceTextureAvailable不会回调。
+            mCameraController.openCamera();
+
             //SurfaceTexture处于无效状态中，则通过SurfaceTextureListener确保surface准备好。
         } else {//无效就加入一个监听SufaceTextureListener，通过回调确保surfaceTexture有效，然后同样openCamera()。
             mPreviewView.setSurfaceTextureListener(mSurfaceTextureListener);
@@ -267,11 +271,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         @Override
         public void onSurfaceTextureAvailable(SurfaceTexture texture, int width, int height) {
-            try {
-                mCameraController.openCamera();//SurfaceTexture有效即可openCamera,宽高是控件宽高
-            } catch (CameraAccessException e) {
-                e.printStackTrace();
-            }
+            mCameraController.openCamera();//SurfaceTexture有效即可openCamera,宽高是控件宽高
         }
 
         //配置transformation，主要是矩阵旋转相关
@@ -295,6 +295,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     @Override
     protected void onPause() {
         super.onPause();
+        mOrientationListener.disable();//禁用方向监听
 
         if (mIsRecordingVideo) {
             mIsRecordingVideo = false;
@@ -356,6 +357,16 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
     }
 
+    //闪光灯开关
+    @Override
+    public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+        if (isChecked) {
+            mCameraController.openFlashMode();
+        } else {
+            mCameraController.closeFlashMode();
+        }
+    }
+
     private void takePicture() {
         mFile = new File(Environment.getExternalStorageDirectory(), System.currentTimeMillis() + ".jpg");
         mCameraController.setPath(mFile);
@@ -374,12 +385,42 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
     }
 
+    private class MyOrientationEventListener extends OrientationEventListener {
+
+        public MyOrientationEventListener(Context context) {
+            super(context);
+        }
+
+        @Override
+        public void onOrientationChanged(int orientation) {
+            if (orientation == ORIENTATION_UNKNOWN) {
+                return;
+            }
+            mPhoneOrientation = roundOrientation(orientation, mPhoneOrientation);
+            mCameraController.setPhoneDeviceDegree(mPhoneOrientation);
+        }
+    }
+
+    private int roundOrientation(int orientation, int orientationHistory) {
+        boolean changeOrientation = false;
+        if (orientationHistory == OrientationEventListener.ORIENTATION_UNKNOWN) {
+            changeOrientation = true;
+        } else {
+            int dist = Math.abs(orientation - orientationHistory);
+            dist = Math.min(dist, 360 - dist);
+            changeOrientation = (dist >= 45 + ORIENTATION_HYSTERESIS);
+        }
+        if (changeOrientation) {
+            return ((orientation + 45) / 90 * 90) % 360;
+        }
+        return orientationHistory;
+    }
+
 
     private void requestFullScreenActivity() {
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
     }
-
 
 }
