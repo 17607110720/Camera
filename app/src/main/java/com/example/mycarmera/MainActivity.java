@@ -35,7 +35,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import java.io.File;
 
 @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
-public class MainActivity extends AppCompatActivity implements View.OnClickListener, CameraController.CameraControllerInterFaceCallback, MyButton.MyCameraButtonClickListener, CompoundButton.OnCheckedChangeListener {
+public class MainActivity extends AppCompatActivity implements View.OnClickListener, CameraController.CameraControllerInterFaceCallback, MyButton.MyCameraButtonClickListener, TwoStateSwitch.CustomCheckBoxChangeListener {
 
     private AutoFitTextureView mPreviewView;
 
@@ -50,7 +50,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private TextView ratio_4_3;
     private TextView ratio_16_9;
     private MyButton myButton;
-//    private MyButton myVideoTakePicButton;
+    //    private MyButton myVideoTakePicButton;
     private LinearLayout ll_switch_ratio;
     private LinearLayout ll_switch_mode;
     private View switch_camera_id;
@@ -65,7 +65,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private Handler mBackgroundHandler;
     private int mCurrentMode = CameraConstant.PHOTO_MODE;
     private TextView slowMotionModeTextView;
-    private Switch flash;
+    private TwoStateSwitch mFlashSwitch;
 
 
     @Override
@@ -102,7 +102,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         settings = findViewById(R.id.settings);
         goto_photo = findViewById(R.id.goto_photo);
 //        myVideoTakePicButton = findViewById(R.id.myVideoTakePicButton);
-        flash = findViewById(R.id.flash);
+        mFlashSwitch = findViewById(R.id.flash_switch);
 
         goto_photo.setBackground(getDrawable(R.drawable.drawable_shape));
 
@@ -116,9 +116,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         switch_camera_id.setOnClickListener(this);
         settings.setOnClickListener(this);
         goto_photo.setOnClickListener(this);
-        flash.setOnCheckedChangeListener(this);
-
-
+        mFlashSwitch.setCustomCheckBoxChangeListener(this);
         mCameraController = new CameraController(this, mPreviewView);
         mCameraController.setCameraControllerInterFaceCallback(this);
     }
@@ -137,6 +135,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         myButton.setCurrentMode(mCurrentMode);
 
         mCameraController.closeCamera();
+        mCameraController.closeMediaRecorder();
         mCameraController.setCurrentMode(mCurrentMode);
         mCameraController.setTargetRatio(CameraConstant.RATIO_FOUR_THREE);
         mCameraController.openCamera();
@@ -153,8 +152,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         mCurrentMode = CameraConstant.VIDEO_MODE;
         myButton.setCurrentMode(mCurrentMode);
-
-        Log.d("videoMode", "" + mIsRecordingVideo);
 
         myButton.setVideoRecordingState(false);
         mCameraController.closeCamera();
@@ -302,10 +299,17 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             stopRecordVideo();
         }
         mCameraController.closeCamera();
+        mCameraController.closeMediaRecorder();
         mCameraController.stopBackgroundThread();
-
-
     }
+
+//    @Override
+//    protected void onDestroy() {
+//        if (mHandler != null) {
+//            mHandler.removeCallbacksAndMessages(null);
+//        }
+//        super.onDestroy();
+//    }
 
 
     public void startRecordVideo() {
@@ -318,7 +322,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         settings.setVisibility(View.GONE);//录像时不能设置水印
 //        myVideoTakePicButton.setVisibility(View.VISIBLE);//录像时可以进行拍照
         goto_photo.setVisibility(View.GONE);//录像时不能进入相册查看缩略图
-        flash.setVisibility(View.GONE);//录像时不能控制闪光灯
+        mFlashSwitch.setVisibility(View.GONE);//录像时不能控制闪光灯
         mCameraController.startRecordingVideo();
 
     }
@@ -330,7 +334,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         settings.setVisibility(View.VISIBLE);//录像结束后才能设置水印
 //        myVideoTakePicButton.setVisibility(View.GONE);//录像结束关闭录像时拍照按钮
         goto_photo.setVisibility(View.VISIBLE);//录像结束才能进入相册查看缩略图
-        flash.setVisibility(View.VISIBLE);//录像结束才能控制闪光灯
+        mFlashSwitch.setVisibility(View.VISIBLE);//录像结束才能控制闪光灯
         mCameraController.stopRecordingVideo();
         Toast.makeText(this, "录像储存位置：" + mFile, Toast.LENGTH_LONG).show();
 
@@ -363,21 +367,41 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
     }
 
-    //闪光灯开关
+//    //闪光灯开关
+//    @Override
+//    public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+//        if (isChecked) {
+//            mCameraController.openFlashMode();
+//        } else {
+//            mCameraController.closeFlashMode();
+//        }
+//    }
+
     @Override
-    public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-        if (isChecked) {
-            mCameraController.openFlashMode();
-        } else {
-            mCameraController.closeFlashMode();
+    public void customCheckBoxOn(int flashSwitch) {
+        switch (flashSwitch) {
+            case R.id.flash_switch:
+                mCameraController.openFlashMode();
+                break;
         }
     }
+
+    @Override
+    public void customCheckBoxOff(int flashSwitch) {
+        switch (flashSwitch) {
+            case R.id.flash_switch:
+                mCameraController.closeFlashMode();
+                break;
+        }
+    }
+
 
     private void takePicture() {
         mFile = new File(Environment.getExternalStorageDirectory(), System.currentTimeMillis() + ".jpg");
         mCameraController.setPath(mFile);
-        myButton.startPictureAnimator();
         mCameraController.takepicture();
+        myButton.startPictureAnimator();
+        myButton.setEnabled(false);
     }
 
     private void takeVideo() {
@@ -391,6 +415,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             startRecordVideo();
         }
     }
+
 
     private class MyOrientationEventListener extends OrientationEventListener {
 

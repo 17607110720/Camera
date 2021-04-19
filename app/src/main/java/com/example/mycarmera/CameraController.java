@@ -120,8 +120,6 @@ public class CameraController {
         @Override
         public void onOpened(@NonNull CameraDevice cameraDevice) {
             mCameraDevice = cameraDevice;
-            Log.d("mCameraDevice", "mCameraDevice:::" + mCameraDevice);
-//            createImagerReader();
             choosePreviewAndCaptureSize();
             createCameraPreviewSession();//打开相机成功的话，获取CameraDevice，然后创建会话--createCameraPreviewSession()
         }
@@ -174,7 +172,7 @@ public class CameraController {
 
     private void createImagerReader() {
         mImageReader = ImageReader.newInstance(mCaptureSize.getWidth(), mCaptureSize.getHeight(),
-                ImageFormat.JPEG, /*maxImages*/1);
+                ImageFormat.JPEG, /*maxImages*/1);//RAW_SENSOR YUV_420_888
         mImageReader.setOnImageAvailableListener(
                 mOnImageAvailableListener, mBackgroundHandler);
         mActivity.runOnUiThread(new Runnable() {
@@ -210,9 +208,6 @@ public class CameraController {
             texture.setDefaultBufferSize(mPreviewSize.getWidth(), mPreviewSize.getHeight());////设置TextureView的缓冲区大小
             //获取Surface显示预览数据
             Surface surface = new Surface(texture);
-
-//            Log.d("mCameraDevice","mCameraDevice:"+mCameraDevice);
-
             mPreviewRequestBuilder
                     = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);////创建TEMPLATE_PREVIEW预览CaptureRequest.Builder
             mPreviewRequestBuilder.addTarget(surface);//CaptureRequest.Builder中添加Surface，即mTextureView获取创建的Surface
@@ -291,13 +286,11 @@ public class CameraController {
         Paint paintText = new Paint();
         paintText.setColor(Color.argb(80, 255, 255, 255));
 
-        paintText.setTextSize(500);
         if (lenFaceFront()) {
             paintText.setTextSize(60);
         } else {
             paintText.setTextSize(150);
         }
-
 
         paintText.setDither(true);
         paintText.setFilterBitmap(true);
@@ -307,7 +300,6 @@ public class CameraController {
         int beginX = bitmapNew.getWidth() - rectText.width() - 100;
         int beginY = bitmapNew.getHeight() - rectText.height();
         canvasNew.drawText(drawTime, beginX, beginY, paintText);
-
         FileOutputStream output = null;
         try {
             output = new FileOutputStream(mFile);
@@ -433,7 +425,6 @@ public class CameraController {
         try {
 //        //拍照数据会由imageSaver处理，保存到文件，
             //设置TEMPLATE_STILL_CAPTURE拍照CaptureRequest.Builder
-
             final CaptureRequest.Builder captureBuilder =
                     mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
             //添加拍照mImageReader为Surface
@@ -517,6 +508,13 @@ public class CameraController {
         }
     }
 
+    public void closeMediaRecorder() {
+        if (mMediaRecorder != null) {
+            mMediaRecorder.release();
+            mMediaRecorder = null;
+        }
+    }
+
 
     private void choosePreviewAndCaptureSize() {
         CameraCharacteristics characteristics
@@ -527,20 +525,19 @@ public class CameraController {
             e.printStackTrace();
         }
 
-//        mSensorOrientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION);//方向
+        mSensorOrientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION);//方向
+        Log.d("mSensorOrientation", "" + mSensorOrientation);
+
 
         StreamConfigurationMap map = characteristics.get(
                 CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
-        Size[] previewSizeMap = map.getOutputSizes(SurfaceTexture.class);
-        for (int i = 0; i < previewSizeMap.length; i++) {
-            Log.d("yanweitim", "testing = " + previewSizeMap[i].getWidth() + "," + previewSizeMap[i].getHeight());
-        }
-        Size[] captureSizeMap = map.getOutputSizes(ImageFormat.JPEG);
+        Size[] previewSizeMap = map.getOutputSizes(SurfaceTexture.class);//preview
+        Size[] captureSizeMap = map.getOutputSizes(ImageFormat.JPEG);//拍照
         int screenWidth = getScreenWidth(mActivity.getApplicationContext());
         mPreviewSize = getPreviewSize(previewSizeMap, mTargetRatio, screenWidth);
         if (mCurrentMode == CameraConstant.VIDEO_MODE || mCurrentMode == CameraConstant.SLOW_MOTION_MODE) {
-            mVideoSize = getVideoSize(mTargetRatio, previewSizeMap);
-
+            mVideoSize = mPreviewSize;
+//            mVideoSize = getVideoSize(mTargetRatio, previewSizeMap);
         }
         mCaptureSize = getPictureSize(mTargetRatio, captureSizeMap);
 
