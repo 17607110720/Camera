@@ -119,13 +119,13 @@
             android:layout_alignParentBottom="true"
             android:layout_marginBottom="50dp">
 
-            <ImageView
-                android:id="@+id/goto_photo"
+            <com.example.mycarmera.RoundImageView
+                android:id="@+id/goto_gallery"
                 android:layout_width="60dp"
                 android:layout_height="60dp"
                 android:layout_centerVertical="true"
                 android:layout_marginLeft="40dp"
-                android:padding="1dp"></ImageView>
+                android:padding="1dp"></com.example.mycarmera.RoundImageView>
 
             <com.example.mycarmera.MyButton
                 android:id="@+id/myButton"
@@ -148,16 +148,6 @@
             </ImageButton>
         </RelativeLayout>
 
-
-        <!--        <com.example.mycarmera.MyButton-->
-        <!--            android:id="@+id/myVideoTakePicButton"-->
-        <!--            android:layout_width="wrap_content"-->
-        <!--            android:layout_height="wrap_content"-->
-        <!--            android:layout_centerVertical="true"-->
-        <!--            android:layout_marginLeft="40dp"-->
-        <!--            android:visibility="gone">-->
-
-        <!--        </com.example.mycarmera.MyButton>-->
 
     </RelativeLayout>
 

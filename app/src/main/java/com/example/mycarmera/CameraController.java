@@ -277,7 +277,7 @@ public class CameraController {
             matrix.postScale(-1, 1);
         }
 
-        Bitmap bitmapSrc = Bitmap.createBitmap(bitmapStart, 0, 0, bitmapStart.getWidth(), bitmapStart.getHeight(), null, true);
+        Bitmap bitmapSrc = Bitmap.createBitmap(bitmapStart, 0, 0, bitmapStart.getWidth(), bitmapStart.getHeight(), matrix, true);
         mCameraCallback.onThumbnailCreated(bitmapSrc);//添加缩略图
         Bitmap bitmapNew = Bitmap.createBitmap(bitmapSrc.getWidth(), bitmapSrc.getHeight(), Bitmap.Config.ARGB_8888);
         Canvas canvasNew = new Canvas(bitmapNew);
@@ -356,7 +356,7 @@ public class CameraController {
             matrix.postScale(-1, 1);
         }
         Bitmap srcBitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.length, null);
-        Bitmap bitmapThumbnail = Bitmap.createBitmap(showThumbnail, 0, 0, showThumbnail.getWidth(), showThumbnail.getHeight(), null, true);
+        Bitmap bitmapThumbnail = Bitmap.createBitmap(showThumbnail, 0, 0, showThumbnail.getWidth(), showThumbnail.getHeight(), matrix, true);
         mCameraCallback.onThumbnailCreated(bitmapThumbnail);//添加缩略图
 
         FileOutputStream output = null;

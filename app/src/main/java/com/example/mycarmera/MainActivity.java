@@ -3,10 +3,8 @@ package com.example.mycarmera;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
-import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.SurfaceTexture;
-import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraDevice;
 import android.media.ImageReader;
@@ -14,18 +12,15 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
-import android.os.Handler;
-import android.os.HandlerThread;
-import android.util.Log;
+import android.os.StrictMode;
 import android.view.OrientationEventListener;
 import android.view.TextureView;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
-import android.widget.CompoundButton;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -53,16 +48,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     //    private MyButton myVideoTakePicButton;
     private LinearLayout ll_switch_ratio;
     private LinearLayout ll_switch_mode;
-    private View switch_camera_id;
+    private ImageButton switch_camera_id;
     private ImageView settings;
-    private ImageView goto_photo;
+    private RoundImageView goto_gallery;
     private MyOrientationEventListener mOrientationListener;
     private int mPhoneOrientation;
     public static final int ORIENTATION_HYSTERESIS = 5;
 
 
-    private HandlerThread mBackgroundThread;
-    private Handler mBackgroundHandler;
     private int mCurrentMode = CameraConstant.PHOTO_MODE;
     private TextView slowMotionModeTextView;
     private TwoStateSwitch mFlashSwitch;
@@ -100,11 +93,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         ll_switch_mode = findViewById(R.id.ll_switch_mode);
         switch_camera_id = findViewById(R.id.switch_camera_id);
         settings = findViewById(R.id.settings);
-        goto_photo = findViewById(R.id.goto_photo);
+        goto_gallery = findViewById(R.id.goto_gallery);
 //        myVideoTakePicButton = findViewById(R.id.myVideoTakePicButton);
         mFlashSwitch = findViewById(R.id.flash_switch);
 
-        goto_photo.setBackground(getDrawable(R.drawable.drawable_shape));
+        goto_gallery.setBackground(getDrawable(R.drawable.drawable_shape));
 
         picModeTextView.setOnClickListener(this);
         videoModeTextView.setOnClickListener(this);
@@ -115,7 +108,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         ratio_16_9.setOnClickListener(this);
         switch_camera_id.setOnClickListener(this);
         settings.setOnClickListener(this);
-        goto_photo.setOnClickListener(this);
+        goto_gallery.setOnClickListener(this);
         mFlashSwitch.setCustomCheckBoxChangeListener(this);
         mCameraController = new CameraController(this, mPreviewView);
         mCameraController.setCameraControllerInterFaceCallback(this);
@@ -230,17 +223,24 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             case R.id.settings:
                 gotoSrttingsActivity();
                 break;
-            case R.id.goto_photo:
-                gotoPhoto();
+            case R.id.goto_gallery:
+                gotoGallery();
                 break;
         }
     }
 
 
     //进入相册
-    private void gotoPhoto() {
-        Intent intent = new Intent(Intent.ACTION_VIEW);
-        intent.setType("image/*");
+    private void gotoGallery() {
+        StrictMode.VmPolicy.Builder builder = new StrictMode.VmPolicy.Builder();
+        StrictMode.setVmPolicy(builder.build());
+        builder.detectFileUriExposure();
+        if (null == mFile) return;
+        Uri uri = Uri.fromFile(mFile);
+        Intent intent = new Intent();
+        intent.setAction(Intent.ACTION_VIEW);
+//        intent.setDataAndType(uri, "image/jpeg");
+        intent.setDataAndType(uri, "image/*");
         startActivity(intent);
     }
 
@@ -321,7 +321,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         switch_camera_id.setVisibility(View.GONE);//录像时不能前后置切换
         settings.setVisibility(View.GONE);//录像时不能设置水印
 //        myVideoTakePicButton.setVisibility(View.VISIBLE);//录像时可以进行拍照
-        goto_photo.setVisibility(View.GONE);//录像时不能进入相册查看缩略图
+        goto_gallery.setVisibility(View.GONE);//录像时不能进入相册查看缩略图
         mFlashSwitch.setVisibility(View.GONE);//录像时不能控制闪光灯
         mCameraController.startRecordingVideo();
 
@@ -333,7 +333,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         switch_camera_id.setVisibility(View.VISIBLE);//录像结束后才能前后置切换
         settings.setVisibility(View.VISIBLE);//录像结束后才能设置水印
 //        myVideoTakePicButton.setVisibility(View.GONE);//录像结束关闭录像时拍照按钮
-        goto_photo.setVisibility(View.VISIBLE);//录像结束才能进入相册查看缩略图
+        goto_gallery.setVisibility(View.VISIBLE);//录像结束才能进入相册查看缩略图
         mFlashSwitch.setVisibility(View.VISIBLE);//录像结束才能控制闪光灯
         mCameraController.stopRecordingVideo();
         Toast.makeText(this, "录像储存位置：" + mFile, Toast.LENGTH_LONG).show();
@@ -346,8 +346,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                goto_photo.setImageBitmap(bitmap);
-                goto_photo.invalidate();
+                goto_gallery.setBitmap(bitmap);
             }
         });
     }
@@ -366,16 +365,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         }
     }
-
-//    //闪光灯开关
-//    @Override
-//    public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-//        if (isChecked) {
-//            mCameraController.openFlashMode();
-//        } else {
-//            mCameraController.closeFlashMode();
-//        }
-//    }
 
     @Override
     public void customCheckBoxOn(int flashSwitch) {
