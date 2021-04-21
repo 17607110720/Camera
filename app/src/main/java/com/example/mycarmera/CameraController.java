@@ -27,11 +27,13 @@ import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.Image;
 import android.media.ImageReader;
 import android.media.MediaRecorder;
+import android.media.ThumbnailUtils;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.provider.MediaStore;
 import android.util.Log;
 import android.util.Size;
 import android.view.OrientationEventListener;
@@ -52,7 +54,6 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 
-import static android.content.ContentValues.TAG;
 import static com.example.mycarmera.CameraConstant.ADD_WATER_MARK;
 
 @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
@@ -307,7 +308,7 @@ public class CameraController {
             output.flush();
             Uri photouri = Uri.fromFile(mFile);
             mActivity.sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, photouri));
-//        mCameraCallback.onTakePictureFinished();
+            mCameraCallback.onTakePictureFinished();
 
         } catch (IOException e) {
             e.printStackTrace();
@@ -367,7 +368,7 @@ public class CameraController {
             Uri photouri = Uri.fromFile(mFile);
 
             mActivity.sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, photouri));
-//            mCameraCallback.onTakePictureFinished();
+            mCameraCallback.onTakePictureFinished();
         } catch (IOException e) {
             e.printStackTrace();
         } finally {
@@ -442,8 +443,7 @@ public class CameraController {
                                                @NonNull CaptureRequest request,
                                                @NonNull TotalCaptureResult result) {
                     //提示拍照图片已经保存
-                    Toast.makeText(mActivity, "Saved: " + mFile, Toast.LENGTH_LONG).show();
-                    Log.d(TAG, mFile.toString());
+//                    Toast.makeText(mActivity, "Saved: " + mFile, Toast.LENGTH_LONG).show();
                 }
             };
             captureBuilder.set(CaptureRequest.JPEG_ORIENTATION, getJpegRotation(mCameraId, mPhoneOrientation));//90 0 180 270
@@ -517,8 +517,7 @@ public class CameraController {
 
 
     private void choosePreviewAndCaptureSize() {
-        CameraCharacteristics characteristics
-                = null;
+        CameraCharacteristics characteristics = null;
         try {
             characteristics = manager.getCameraCharacteristics(String.valueOf(mCameraId));
         } catch (CameraAccessException e) {
@@ -526,7 +525,6 @@ public class CameraController {
         }
 
         mSensorOrientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION);//方向
-        Log.d("mSensorOrientation", "" + mSensorOrientation);
 
 
         StreamConfigurationMap map = characteristics.get(
@@ -542,7 +540,6 @@ public class CameraController {
         mCaptureSize = getPictureSize(mTargetRatio, captureSizeMap);
 
         createImagerReader();
-
     }
 
 
@@ -641,14 +638,18 @@ public class CameraController {
     }
 
     public void stopRecordingVideo() {
-        // UI
-        // Stop recording
         mMediaRecorder.stop();
         mMediaRecorder.reset();
 
+        Uri uri = Uri.fromFile(mFile);
+        //final int target = mActivity.getResources().getDimensionPixelSize(R.dimen.thumbnail_size);
+        //Bitmap bitmapThumbnail = createVideoThumbnailBitmap(mFile.toString(), null, target);
 
-        //mNextVideoAbsolutePath = null;
-//        startPreview();
+        Bitmap bitmapThumbnail = ThumbnailUtils.createVideoThumbnail(mFile.toString(), MediaStore.Images.Thumbnails.MINI_KIND);
+        if (mCameraCallback != null)
+            mCameraCallback.onThumbnailCreated(bitmapThumbnail);
+        mActivity.sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, uri));
+
         closeSession();
         choosePreviewAndCaptureSize();
         createCameraPreviewSession();
@@ -745,6 +746,8 @@ public class CameraController {
 
 
         void onThumbnailCreated(Bitmap bitmap);
+
+        void onTakePictureFinished();
     }
 
     public void setCameraControllerInterFaceCallback(CameraControllerInterFaceCallback cameraCallback) {

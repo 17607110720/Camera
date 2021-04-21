@@ -2,7 +2,9 @@ package com.example.mycarmera;
 
 import android.content.Context;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.TextureView;
+import android.view.View;
 
 
 public class AutoFitTextureView extends TextureView {
@@ -28,7 +30,7 @@ public class AutoFitTextureView extends TextureView {
         }
         mRatioWidth = width;
         mRatioHeight = height;
-        requestLayout();
+        requestLayout();//宽高比之后重新绘制
     }
 
     @Override
@@ -38,14 +40,14 @@ public class AutoFitTextureView extends TextureView {
         int height = MeasureSpec.getSize(heightMeasureSpec);
 
         if (mRatioHeight == 0 || mRatioWidth == 0) {
-            setAspectRatio(width,height);
-        }else{
+            setAspectRatio(width, height);
+        } else {
             if (width < height * mRatioWidth / mRatioHeight) {
                 setMeasuredDimension(width, width * mRatioHeight / mRatioWidth);
             } else {
                 setMeasuredDimension(height * mRatioWidth / mRatioHeight, height);
             }
         }
-
+        Log.d("setAspectRatio", "mRatioWidth=" + mRatioWidth + ",mRatioHeight=" + mRatioHeight);
     }
 }

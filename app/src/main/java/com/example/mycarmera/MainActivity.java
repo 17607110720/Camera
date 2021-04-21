@@ -5,14 +5,15 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.SurfaceTexture;
-import android.hardware.camera2.CameraCaptureSession;
-import android.hardware.camera2.CameraDevice;
-import android.media.ImageReader;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.Message;
 import android.os.StrictMode;
+import android.provider.MediaStore;
+import android.text.format.DateUtils;
 import android.view.OrientationEventListener;
 import android.view.TextureView;
 import android.view.View;
@@ -24,19 +25,18 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 
 import java.io.File;
 
+import java.text.SimpleDateFormat;
+
 @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
 public class MainActivity extends AppCompatActivity implements View.OnClickListener, CameraController.CameraControllerInterFaceCallback, MyButton.MyCameraButtonClickListener, TwoStateSwitch.CustomCheckBoxChangeListener {
 
     private AutoFitTextureView mPreviewView;
-
-    private CameraDevice mCameraDevice;
-    private ImageReader mImageReader;
-    private CameraCaptureSession mCaptureSession;
     private CameraController mCameraController;
     private boolean mIsRecordingVideo;
     private File mFile;
@@ -59,6 +59,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private int mCurrentMode = CameraConstant.PHOTO_MODE;
     private TextView slowMotionModeTextView;
     private TwoStateSwitch mFlashSwitch;
+    private TextView video_time;
+    private TextView pic_time;
+    private FocusView focus;
 
 
     @Override
@@ -96,6 +99,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         goto_gallery = findViewById(R.id.goto_gallery);
 //        myVideoTakePicButton = findViewById(R.id.myVideoTakePicButton);
         mFlashSwitch = findViewById(R.id.flash_switch);
+        video_time = findViewById(R.id.video_time);
+        pic_time = findViewById(R.id.pic_time);
+        focus = findViewById(R.id.focus);
 
         goto_gallery.setBackground(getDrawable(R.drawable.drawable_shape));
 
@@ -118,6 +124,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private void picMode() {
         if (mCurrentMode == CameraConstant.PHOTO_MODE) return;
         ll_switch_ratio.setVisibility(View.VISIBLE);
+        video_time.setVisibility(View.GONE);//拍照模式不可见录像计时
+        pic_time.setVisibility(View.VISIBLE);
         ratio_4_3.setTextColor(Color.YELLOW);
         ratio_16_9.setTextColor(Color.WHITE);
         videoModeTextView.setTextColor(Color.WHITE);
@@ -139,6 +147,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private void videoMode() {
         if (mCurrentMode == CameraConstant.VIDEO_MODE) return;
         ll_switch_ratio.setVisibility(View.GONE);//慢动作/录像模式下默认16：9，不允许切换比例
+        video_time.setVisibility(View.VISIBLE);//慢动作/录像模式下开启计时
+        pic_time.setVisibility(View.GONE);
         picModeTextView.setTextColor(Color.WHITE);
         videoModeTextView.setTextColor(Color.YELLOW);
         slowMotionModeTextView.setTextColor(Color.WHITE);
@@ -157,6 +167,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private void slowMotionMode() {
         if (mCurrentMode == CameraConstant.SLOW_MOTION_MODE) return;
         ll_switch_ratio.setVisibility(View.GONE);//慢动作/录像模式下默认16：9，不允许切换比例
+        video_time.setVisibility(View.VISIBLE);//慢动作/录像模式下开启计时
+        pic_time.setVisibility(View.GONE);
         picModeTextView.setTextColor(Color.WHITE);
         videoModeTextView.setTextColor(Color.WHITE);
         slowMotionModeTextView.setTextColor(Color.YELLOW);
@@ -250,6 +262,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         super.onResume();
         mCameraController.startBackgroundThread();//开启一个后台线程处理相机数据
 
+//        focus.setNeedToDrawView(true);
+//        focus.setFocusViewCenter(100,100);
+//        focus.playAnimation();
+
         initOrientationSensor();//开始方向监听
         //判断TextureView是否有效，有效就直接openCamera()，
         if (mPreviewView.isAvailable()) {
@@ -325,6 +341,36 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         mFlashSwitch.setVisibility(View.GONE);//录像时不能控制闪光灯
         mCameraController.startRecordingVideo();
 
+        SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss");
+        long startTimeMillis = System.currentTimeMillis();
+        Handler handler = new Handler() {
+            @Override
+            public void handleMessage(@NonNull Message msg) {
+                super.handleMessage(msg);
+                if (mIsRecordingVideo) {
+                    video_time.setText(sdf.format(msg.obj) + "");
+                } else {
+                    video_time.setText("00:00:00");
+                }
+            }
+        };
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                while (mIsRecordingVideo) {
+                    try {
+                        Thread.sleep(1000);
+                        long endTimeMillis = System.currentTimeMillis();
+                        Message msg = handler.obtainMessage();
+                        msg.obj = endTimeMillis - startTimeMillis;
+                        handler.sendMessage(msg);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }).start();
     }
 
     public void stopRecordVideo() {
@@ -349,6 +395,17 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 goto_gallery.setBitmap(bitmap);
             }
         });
+    }
+
+    @Override
+    public void onTakePictureFinished() {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                myButton.setEnabled(true);
+            }
+        });
+        Toast.makeText(this, "Saved: " + mFile, Toast.LENGTH_LONG).show();
     }
 
 
@@ -388,8 +445,42 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private void takePicture() {
         mFile = new File(Environment.getExternalStorageDirectory(), System.currentTimeMillis() + ".jpg");
         mCameraController.setPath(mFile);
-        mCameraController.takepicture();
+//        try {
+//            Thread.sleep(3000);
+//        } catch (InterruptedException e) {
+//            e.printStackTrace();
+//        }
         myButton.startPictureAnimator();
+
+        Handler handler = new Handler() {
+            @Override
+            public void handleMessage(@NonNull Message msg) {
+                super.handleMessage(msg);
+                if ((int) msg.obj >= 0) {
+                    pic_time.setText(msg.obj + "");
+                }
+                if ((int) msg.obj == 0) {
+                    mCameraController.takepicture();
+                    pic_time.setText("");
+                }
+            }
+        };
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                for (int i = 3; i >= 0; i--) {
+                    try {
+                        Thread.sleep(1000);
+                        Message msg = handler.obtainMessage();
+                        msg.obj = i;
+                        handler.sendMessage(msg);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }).start();
         myButton.setEnabled(false);
     }
 
