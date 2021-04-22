@@ -1,10 +1,9 @@
 package com.example.mycarmera;
 
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.view.TextureView;
-import android.view.View;
 
 
 public class AutoFitTextureView extends TextureView {
@@ -48,6 +47,9 @@ public class AutoFitTextureView extends TextureView {
                 setMeasuredDimension(height * mRatioWidth / mRatioHeight, height);
             }
         }
-        Log.d("setAspectRatio", "mRatioWidth=" + mRatioWidth + ",mRatioHeight=" + mRatioHeight);
+    }
+
+    public void setBitmap(Bitmap blurBitmap) {
+        setBitmap(blurBitmap);
     }
 }

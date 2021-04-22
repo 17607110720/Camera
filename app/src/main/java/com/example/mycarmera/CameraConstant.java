@@ -9,5 +9,6 @@ public class CameraConstant {
     public static final float RATIO_SIXTEEN_NINE = 1.777f;
     public static final String ADD_WATER_MARK = "add_water_mark";
     public static final String FOCUS_TAKE_PICTURE = "focus_take_picture";
+    public static final String COUNTDOWN_PHOTO = "countdown_photo";
 
 }

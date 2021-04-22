@@ -108,7 +108,7 @@ public class RoundImageView extends AppCompatImageView {
             canvas.drawRoundRect(mRoundRect, mBorderRadius, mBorderRadius, mBitmapPaint);
         } else {
             canvas.drawCircle(mRadius, mRadius, mRadius, mBitmapPaint);
-            canvas.drawCircle(mRadius, mRadius, mRadius - 1, mBitmapPaint);
+            canvas.drawCircle(mRadius, mRadius, mRadius - 1, mRingPaint);
         }
     }
 

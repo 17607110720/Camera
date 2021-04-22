@@ -20,9 +20,11 @@ import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
+import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.TotalCaptureResult;
+import android.hardware.camera2.params.MeteringRectangle;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.Image;
 import android.media.ImageReader;
@@ -30,7 +32,6 @@ import android.media.MediaRecorder;
 import android.media.ThumbnailUtils;
 import android.net.Uri;
 import android.os.Build;
-import android.os.Environment;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.provider.MediaStore;
@@ -38,7 +39,6 @@ import android.util.Log;
 import android.util.Size;
 import android.view.OrientationEventListener;
 import android.view.Surface;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
@@ -55,6 +55,7 @@ import java.util.Date;
 import java.util.List;
 
 import static com.example.mycarmera.CameraConstant.ADD_WATER_MARK;
+import static com.example.mycarmera.DensityUtils.dip2px;
 
 @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
 public class CameraController {
@@ -87,6 +88,8 @@ public class CameraController {
     private int mCurrentMode = CameraConstant.PHOTO_MODE;
     private int mPhoneOrientation;
     private int mSensorOrientation;
+    private boolean mStartTapFocus = false;
+    private boolean mFocusTakePicture = false;
 
 
     public CameraController(Activity activity, AutoFitTextureView textureView) {
@@ -114,7 +117,6 @@ public class CameraController {
         }
     }
 
-
     //mStateCallback是相机状态回调
     private final CameraDevice.StateCallback mStateCallback = new CameraDevice.StateCallback() {
 
@@ -123,6 +125,8 @@ public class CameraController {
             mCameraDevice = cameraDevice;
             choosePreviewAndCaptureSize();
             createCameraPreviewSession();//打开相机成功的话，获取CameraDevice，然后创建会话--createCameraPreviewSession()
+
+
         }
 
         @Override
@@ -180,6 +184,8 @@ public class CameraController {
             @Override
             public void run() {
                 mPreviewTexture.setAspectRatio(mPreviewSize.getHeight(), mPreviewSize.getWidth());
+//                mGridLine.setAspectRatio(mPreviewSize.getHeight(), mPreviewSize.getWidth());
+//                Log.d("setAspectRatio", "getHeight=" + mPreviewSize.getHeight() + ",getWidth=" + mPreviewSize.getWidth());
             }
         });
 
@@ -198,10 +204,50 @@ public class CameraController {
         public void onCaptureCompleted(@NonNull CameraCaptureSession session,
                                        @NonNull CaptureRequest request,
                                        @NonNull TotalCaptureResult result) {
-
+            process(result);
         }
 
     };
+
+    public void process(CaptureResult result) {
+        //Face[] faces = result.get(CaptureResult.STATISTICS_FACES);
+
+        if (mFocusTakePicture) {
+            Integer afState = result.get(CaptureResult.CONTROL_AF_STATE);
+
+            if (CaptureResult.CONTROL_AF_STATE_FOCUSED_LOCKED == afState ||
+                    CaptureResult.CONTROL_AF_STATE_NOT_FOCUSED_LOCKED == afState ||
+                    CaptureResult.CONTROL_AF_STATE_PASSIVE_FOCUSED == afState) {
+                mFocusTakePicture = false;
+                beginCaptureStillPicture();
+            }
+        }
+
+        if (mStartTapFocus) {
+            Integer afState = result.get(CaptureResult.CONTROL_AF_STATE);
+
+            if (CaptureResult.CONTROL_AF_STATE_FOCUSED_LOCKED == afState ||
+                    CaptureResult.CONTROL_AF_STATE_NOT_FOCUSED_LOCKED == afState ||
+                    CaptureResult.CONTROL_AF_STATE_PASSIVE_FOCUSED == afState) {
+                mStartTapFocus = false;
+                if (mCameraCallback != null)
+                    mCameraCallback.onTapFocusFinish();
+                mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CameraMetadata.CONTROL_AF_TRIGGER_CANCEL);
+                updateCapture();
+            }
+        }
+    }
+
+    public void updateCapture() {
+        try {
+            mPreviewRequest = mPreviewRequestBuilder.build();
+            mCaptureSession.capture(mPreviewRequest,
+                    mCaptureCallback, mBackgroundHandler);
+            //mCaptureSession.captureBurst()
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+        }
+    }
 
     private void createCameraPreviewSession() {
         try {
@@ -359,7 +405,6 @@ public class CameraController {
         Bitmap srcBitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.length, null);
         Bitmap bitmapThumbnail = Bitmap.createBitmap(showThumbnail, 0, 0, showThumbnail.getWidth(), showThumbnail.getHeight(), matrix, true);
         mCameraCallback.onThumbnailCreated(bitmapThumbnail);//添加缩略图
-
         FileOutputStream output = null;
         try {
             output = new FileOutputStream(mFile);
@@ -422,7 +467,7 @@ public class CameraController {
         return rotation;
     }
 
-    public void takepicture() {
+    public void beginCaptureStillPicture() {
         try {
 //        //拍照数据会由imageSaver处理，保存到文件，
             //设置TEMPLATE_STILL_CAPTURE拍照CaptureRequest.Builder
@@ -457,6 +502,15 @@ public class CameraController {
         }
     }
 
+    public void prepareCaptureStillPicture() {
+        boolean focusPicture = SharedPreferencesController.getInstance(mActivity).spGetBoolean(CameraConstant.FOCUS_TAKE_PICTURE);
+        if (focusPicture) {
+            mFocusTakePicture = focusPicture;
+            return;
+        }
+        beginCaptureStillPicture();
+    }
+
     public void switch_16_9() {
         mTargetRatio = 1.777f;
 //        closeSessionAndImageReader();
@@ -478,7 +532,6 @@ public class CameraController {
 //        createCameraPreviewSession();
         openCamera();
     }
-
 
     public void closeCamera() {
         closeSessionAndImageReader();
@@ -595,6 +648,10 @@ public class CameraController {
         return context.getResources().getDisplayMetrics().widthPixels;
     }
 
+    public int getScreenHeight(Context context) {
+        return context.getResources().getDisplayMetrics().heightPixels;
+    }
+
     //前后置镜头转换
     public void switch_camera_id() {
         closeCamera();
@@ -619,6 +676,48 @@ public class CameraController {
         mPhoneOrientation = degree;
     }
 
+    public void updateManualFocus(Rect rect) {
+        if (mStartTapFocus) return;
+        mStartTapFocus = true;
+        mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_REGIONS, new MeteringRectangle[]{new MeteringRectangle(rect, 1000)});
+        mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AE_REGIONS, new MeteringRectangle[]{new MeteringRectangle(rect, 1000)});
+        mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_AUTO);
+        mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CameraMetadata.CONTROL_AF_TRIGGER_START);
+        mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER, CameraMetadata.CONTROL_AE_PRECAPTURE_TRIGGER_START);
+        updateCapture();
+    }
+
+    /**
+     * 获取点击区域
+     *
+     * @param x：手指触摸点x坐标
+     * @param y:         手指触摸点y坐标
+     */
+    public Rect getFocusRect(int x, int y) {
+        int screenW = getScreenWidth(mActivity.getApplicationContext());//获取屏幕长度
+        int screenH = getScreenHeight(mActivity.getApplicationContext());//获取屏幕宽度
+
+        //因为获取的SCALER_CROP_REGION是宽大于高的，也就是默认横屏模式，竖屏模式需要对调width和height
+        int realPreviewWidth = mPreviewSize.getHeight();
+        int realPreviewHeight = mPreviewSize.getWidth();
+
+        //根据预览像素与拍照最大像素的比例，调整手指点击的对焦区域的位置
+        float focusX = realPreviewWidth * 1.0f / screenW * x;
+        float focusY = realPreviewHeight * 1.0f / screenH * y;
+
+        //获取SCALER_CROP_REGION，也就是拍照最大像素的Rect
+        Rect totalPicSize = mPreviewRequest.get(CaptureRequest.SCALER_CROP_REGION);
+
+        //计算出摄像头剪裁区域偏移量
+        int cutDx = (totalPicSize.height() - mPreviewSize.getHeight()) / 2;
+
+        //我们默认使用10dp的大小，也就是默认的对焦区域长宽是10dp，这个数值可以根据需要调节
+        float width = dip2px(mActivity, 10.0f);
+        float height = dip2px(mActivity, 10.0f);
+
+        //返回最终对焦区域Rect
+        return new Rect((int) focusY, (int) focusX + cutDx, (int) (focusY + height), (int) (focusX + cutDx + width));
+    }
 
     private void updateCameraId() {
         try {
@@ -748,6 +847,9 @@ public class CameraController {
         void onThumbnailCreated(Bitmap bitmap);
 
         void onTakePictureFinished();
+
+        void onTapFocusFinish();
+
     }
 
     public void setCameraControllerInterFaceCallback(CameraControllerInterFaceCallback cameraCallback) {

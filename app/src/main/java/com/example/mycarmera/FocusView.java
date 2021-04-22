@@ -23,7 +23,7 @@ public class FocusView extends View {
     private boolean mNeedToDrawView;
 
     public FocusView(Context context) {
-        super(context);
+        this(context, null);
     }
 
     public FocusView(Context context, @Nullable AttributeSet attrs) {
@@ -46,7 +46,7 @@ public class FocusView extends View {
     protected void onDraw(Canvas canvas) {
         if (mNeedToDrawView) {
             canvas.drawCircle(mViewCenterX, mViewCenterY, mOuterRadiusPX, mPaint);
-            canvas.drawCircle(mViewCenterX, mViewCenterY, mOuterRadiusPX, mPaint);
+            canvas.drawCircle(mViewCenterX, mViewCenterY, mInnerRadiusPX, mPaint);
         }
     }
 
@@ -67,10 +67,9 @@ public class FocusView extends View {
         animIner.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
             @Override
             public void onAnimationUpdate(ValueAnimator animation) {
-                float currentVaule = (float) animation.getAnimatedValue();
-                mInnerRadiusPX = (int) currentVaule;
+                float currentValue = (float) animation.getAnimatedValue();
+                mInnerRadiusPX = (int) currentValue;
                 invalidate();
-
             }
         });
 

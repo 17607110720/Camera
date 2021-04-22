@@ -1,5 +1,6 @@
 package com.example.mycarmera;
 
+import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
@@ -12,8 +13,7 @@ import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
 import android.os.StrictMode;
-import android.provider.MediaStore;
-import android.text.format.DateUtils;
+import android.view.MotionEvent;
 import android.view.OrientationEventListener;
 import android.view.TextureView;
 import android.view.View;
@@ -31,11 +31,15 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import java.io.File;
 
+import java.lang.ref.WeakReference;
 import java.text.SimpleDateFormat;
+
+import static com.example.mycarmera.CameraConstant.COUNTDOWN_PHOTO;
 
 @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
 public class MainActivity extends AppCompatActivity implements View.OnClickListener, CameraController.CameraControllerInterFaceCallback, MyButton.MyCameraButtonClickListener, TwoStateSwitch.CustomCheckBoxChangeListener {
 
+    private static final int HIDE_FOCUS_VIEW = 0;
     private AutoFitTextureView mPreviewView;
     private CameraController mCameraController;
     private boolean mIsRecordingVideo;
@@ -55,13 +59,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private int mPhoneOrientation;
     public static final int ORIENTATION_HYSTERESIS = 5;
 
+    private Handler mHandler;
 
     private int mCurrentMode = CameraConstant.PHOTO_MODE;
     private TextView slowMotionModeTextView;
     private TwoStateSwitch mFlashSwitch;
     private TextView video_time;
     private TextView pic_time;
-    private FocusView focus;
+    private FocusView mFocusView;
 
 
     @Override
@@ -71,8 +76,49 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         setContentView(R.layout.activity_main);
         initView();
         registerOrientationLister();
+        initTextureViewListener();
 
     }
+
+    private void initTextureViewListener() {
+        mPreviewView.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                switch (event.getAction()) {
+                    case MotionEvent.ACTION_UP:
+                        int currentY = (int) event.getRawY();
+
+                        int left = mPreviewView.getLeft();
+                        int top = mPreviewView.getTop();
+
+                        int focusViewWidth = DensityUtils.dip2px(MainActivity.this, FocusView.mOuterRadiusDP);
+
+                        int minDrawY = top + focusViewWidth / 2;
+                        int maxDrawY = top + mPreviewView.getHeight() - focusViewWidth / 2;
+                        if (currentY <= minDrawY || currentY >= maxDrawY) return false;
+
+                        int currentX = (int) event.getRawX();
+                        int minDrawX = left + focusViewWidth / 2;
+                        int maxDrawX = left + mPreviewView.getWidth() - focusViewWidth / 2;
+
+                        if (currentX <= minDrawX || currentX >= maxDrawX) return false;
+
+                        mFocusView.setNeedToDrawView(true);
+                        mFocusView.setFocusViewCenter(currentX, currentY);
+
+                        mCameraController.updateManualFocus(mCameraController.getFocusRect(currentX, currentY));
+                        mFocusView.playAnimation();
+                        if (mHandler != null) {
+                            mHandler.removeCallbacksAndMessages(null);
+                            mHandler.sendEmptyMessageDelayed(HIDE_FOCUS_VIEW, 3000);
+                        }
+                        break;
+                }
+                return true;
+            }
+        });
+    }
+
 
     private void registerOrientationLister() {
         mOrientationListener = new MyOrientationEventListener(this);//方向旋转监听
@@ -84,6 +130,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private void initView() {
+        mHandler = new MyHandler(this);
         mPreviewView = findViewById(R.id.preview_view);
         myButton = findViewById(R.id.myButton);
         picModeTextView = findViewById(R.id.switch_mode_pic);
@@ -101,7 +148,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         mFlashSwitch = findViewById(R.id.flash_switch);
         video_time = findViewById(R.id.video_time);
         pic_time = findViewById(R.id.pic_time);
-        focus = findViewById(R.id.focus);
+        mFocusView = findViewById(R.id.focus);
 
         goto_gallery.setBackground(getDrawable(R.drawable.drawable_shape));
 
@@ -125,7 +172,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         if (mCurrentMode == CameraConstant.PHOTO_MODE) return;
         ll_switch_ratio.setVisibility(View.VISIBLE);
         video_time.setVisibility(View.GONE);//拍照模式不可见录像计时
-        pic_time.setVisibility(View.VISIBLE);
+//        pic_time.setVisibility(View.VISIBLE);
         ratio_4_3.setTextColor(Color.YELLOW);
         ratio_16_9.setTextColor(Color.WHITE);
         videoModeTextView.setTextColor(Color.WHITE);
@@ -185,6 +232,26 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     }
 
+    public class MyHandler extends Handler {
+        WeakReference<Activity> mWeakReference;
+
+        public MyHandler(Activity activity) {
+            mWeakReference = new WeakReference<Activity>(activity);
+        }
+
+        @Override
+        public void handleMessage(Message msg) {
+            final Activity activity = mWeakReference.get();
+            if (activity != null) {
+                switch (msg.what) {
+                    case HIDE_FOCUS_VIEW:
+                        mFocusView.setNeedToDrawView(false);
+                        break;
+                }
+            }
+        }
+    }
+
     //4：3
     private void ratio_4_3() {
         ratio_4_3.setTextColor(Color.YELLOW);
@@ -201,7 +268,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     //前后置切换
     private void switch_camera_id() {
+        mHandler.removeCallbacksAndMessages(null);
         mCameraController.switch_camera_id();
+//        playChangeIdAnimation();
     }
 
     private void gotoSrttingsActivity() {
@@ -262,10 +331,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         super.onResume();
         mCameraController.startBackgroundThread();//开启一个后台线程处理相机数据
 
-//        focus.setNeedToDrawView(true);
-//        focus.setFocusViewCenter(100,100);
-//        focus.playAnimation();
-
         initOrientationSensor();//开始方向监听
         //判断TextureView是否有效，有效就直接openCamera()，
         if (mPreviewView.isAvailable()) {
@@ -319,13 +384,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         mCameraController.stopBackgroundThread();
     }
 
-//    @Override
-//    protected void onDestroy() {
-//        if (mHandler != null) {
-//            mHandler.removeCallbacksAndMessages(null);
-//        }
-//        super.onDestroy();
-//    }
+    @Override
+    protected void onDestroy() {
+        if (mHandler != null) {
+            mHandler.removeCallbacksAndMessages(null);
+        }
+        super.onDestroy();
+    }
 
 
     public void startRecordVideo() {
@@ -408,11 +473,18 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         Toast.makeText(this, "Saved: " + mFile, Toast.LENGTH_LONG).show();
     }
 
+    @Override
+    public void onTapFocusFinish() {
+        mHandler.removeCallbacksAndMessages(null);
+        mHandler.sendEmptyMessage(HIDE_FOCUS_VIEW);
+    }
+
 
     @Override
     public void onMyCameraButtonClick(int mode) {
         switch (mode) {
             case CameraConstant.PHOTO_MODE:
+            case CameraConstant.PRO_MODE:
                 takePicture();
                 break;
             case CameraConstant.VIDEO_MODE:
@@ -445,43 +517,49 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private void takePicture() {
         mFile = new File(Environment.getExternalStorageDirectory(), System.currentTimeMillis() + ".jpg");
         mCameraController.setPath(mFile);
-//        try {
-//            Thread.sleep(3000);
-//        } catch (InterruptedException e) {
-//            e.printStackTrace();
-//        }
-        myButton.startPictureAnimator();
 
-        Handler handler = new Handler() {
-            @Override
-            public void handleMessage(@NonNull Message msg) {
-                super.handleMessage(msg);
-                if ((int) msg.obj >= 0) {
-                    pic_time.setText(msg.obj + "");
-                }
-                if ((int) msg.obj == 0) {
-                    mCameraController.takepicture();
-                    pic_time.setText("");
-                }
-            }
-        };
+        boolean countdown_photo = SharedPreferencesController.getInstance(this).spGetBoolean(COUNTDOWN_PHOTO);
+        if (countdown_photo) {
+            pic_time.setVisibility(View.VISIBLE);
+            myButton.startPictureAnimator();
 
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                for (int i = 3; i >= 0; i--) {
-                    try {
-                        Thread.sleep(1000);
-                        Message msg = handler.obtainMessage();
-                        msg.obj = i;
-                        handler.sendMessage(msg);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
+            Handler handler = new Handler() {
+                @Override
+                public void handleMessage(@NonNull Message msg) {
+                    super.handleMessage(msg);
+                    if ((int) msg.obj >= 0) {
+                        pic_time.setText(msg.obj + "");
+                    }
+                    if ((int) msg.obj == 0) {
+                        mCameraController.prepareCaptureStillPicture();
+                        pic_time.setText("");
                     }
                 }
-            }
-        }).start();
+            };
+
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    for (int i = 3; i >= 0; i--) {
+                        try {
+                            Thread.sleep(1000);
+                            Message msg = handler.obtainMessage();
+                            msg.obj = i;
+                            handler.sendMessage(msg);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
+            }).start();
+        } else {
+            pic_time.setVisibility(View.GONE);
+            myButton.startPictureAnimator();
+            mCameraController.prepareCaptureStillPicture();
+
+        }
         myButton.setEnabled(false);
+
     }
 
     private void takeVideo() {

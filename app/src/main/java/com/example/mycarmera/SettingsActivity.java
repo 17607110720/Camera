@@ -11,11 +11,15 @@ import android.widget.ImageView;
 import android.widget.Switch;
 
 import static com.example.mycarmera.CameraConstant.ADD_WATER_MARK;
+import static com.example.mycarmera.CameraConstant.COUNTDOWN_PHOTO;
+import static com.example.mycarmera.CameraConstant.FOCUS_TAKE_PICTURE;
 
 public class SettingsActivity extends AppCompatActivity implements View.OnClickListener, CompoundButton.OnCheckedChangeListener {
 
     private ImageView mBack;
-    private Switch mSwitch;
+    private Switch mWaterMarkSwitch;
+    private Switch mCountDownPhotoSwitch;
+    private Switch mFocusSwitch;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -27,14 +31,24 @@ public class SettingsActivity extends AppCompatActivity implements View.OnClickL
 
     private void initView() {
         mBack = findViewById(R.id.back);
-        mSwitch = findViewById(R.id.water_mark_switch);
+        mWaterMarkSwitch = findViewById(R.id.water_mark_switch);
+        mCountDownPhotoSwitch = findViewById(R.id.countdown_photo_switch);
+        mFocusSwitch = findViewById(R.id.focus_switch);
 
         mBack.setOnClickListener(this);
-        mSwitch.setOnCheckedChangeListener(this);
+        mWaterMarkSwitch.setOnCheckedChangeListener(this);
+        mCountDownPhotoSwitch.setOnCheckedChangeListener(this);
+        mFocusSwitch.setOnCheckedChangeListener(this);
 
         boolean waterMark = SharedPreferencesController.getInstance(this).spGetBoolean(ADD_WATER_MARK);
 
-        mSwitch.setChecked(waterMark);
+        boolean countdown_photo = SharedPreferencesController.getInstance(this).spGetBoolean(COUNTDOWN_PHOTO);
+
+        boolean focus = SharedPreferencesController.getInstance(this).spGetBoolean(FOCUS_TAKE_PICTURE);
+
+        mWaterMarkSwitch.setChecked(waterMark);
+        mCountDownPhotoSwitch.setChecked(countdown_photo);
+        mFocusSwitch.setChecked(focus);
 
     }
 
@@ -56,6 +70,17 @@ public class SettingsActivity extends AppCompatActivity implements View.OnClickL
 
     @Override
     public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-        SharedPreferencesController.getInstance(this).spPutBoolean(ADD_WATER_MARK, isChecked);
+        switch (buttonView.getId()) {
+            case R.id.water_mark_switch:
+                SharedPreferencesController.getInstance(this).spPutBoolean(ADD_WATER_MARK, isChecked);//水印
+                break;
+            case R.id.countdown_photo_switch:
+                SharedPreferencesController.getInstance(this).spPutBoolean(COUNTDOWN_PHOTO, isChecked);//倒计时拍照
+                break;
+            case R.id.focus_switch:
+                SharedPreferencesController.getInstance(this).spPutBoolean(FOCUS_TAKE_PICTURE, isChecked);//对焦
+        }
+
+
     }
 }

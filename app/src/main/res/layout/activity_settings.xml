@@ -4,9 +4,9 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".SettingsActivity"
     android:orientation="vertical"
-    android:padding="10dp">
+    android:padding="10dp"
+    tools:context=".SettingsActivity">
 
 
     <RelativeLayout
@@ -33,8 +33,7 @@
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
-        android:background="@color/colorGray"
-        />
+        android:background="@color/colorGray" />
 
     <RelativeLayout
         android:layout_width="match_parent"
@@ -58,8 +57,59 @@
             android:layout_centerVertical="true"
             android:switchMinWidth="20dp"
             android:thumb="@drawable/switch_thumb"
-            android:track="@drawable/switch_track"
-            />
+            android:track="@drawable/switch_track" />
+    </RelativeLayout>
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="10dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentLeft="true"
+            android:layout_centerVertical="true"
+            android:text="倒计时"
+            android:textColor="@color/circle_color_thumbnail"
+            android:textSize="20sp" />
+
+        <Switch
+            android:id="@+id/countdown_photo_switch"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentRight="true"
+            android:layout_centerVertical="true"
+            android:switchMinWidth="20dp"
+            android:thumb="@drawable/switch_thumb"
+            android:track="@drawable/switch_track" />
+
+    </RelativeLayout>
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="10dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentLeft="true"
+            android:layout_centerVertical="true"
+            android:text="拍照前是否自动对焦"
+            android:textColor="@color/circle_color_thumbnail"
+            android:textSize="20sp" />
+
+        <Switch
+            android:id="@+id/focus_switch"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentRight="true"
+            android:layout_centerVertical="true"
+            android:switchMinWidth="20dp"
+            android:thumb="@drawable/switch_thumb"
+            android:track="@drawable/switch_track" />
+
     </RelativeLayout>
 
 </LinearLayout>
