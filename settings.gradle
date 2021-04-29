@@ -1,2 +1,3 @@
+include ':mycameratest'
 include ':app'
 rootProject.name = "MyCarmera"

@@ -122,6 +122,7 @@ public class MyButton extends View {
 
     public MyCameraButtonClickListener myCameraButtonClickListener;
 
+
     public interface MyCameraButtonClickListener {
         void onMyCameraButtonClick(int mode);
     }

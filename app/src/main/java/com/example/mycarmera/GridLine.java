@@ -9,6 +9,8 @@ import android.util.AttributeSet;
 import android.util.Log;
 import android.view.View;
 
+import static com.example.mycarmera.Utils.getScreenWidth;
+
 
 public class GridLine extends View {
     private int mRatioWidth = 0;
@@ -27,7 +29,6 @@ public class GridLine extends View {
         mPaint.setColor(Color.WHITE);
         mPaint.setStyle(Paint.Style.FILL_AND_STROKE);
         mPaint.setStrokeWidth(1);
-
 
     }
 
@@ -60,7 +61,10 @@ public class GridLine extends View {
 
     @Override
     protected void onDraw(Canvas canvas) {
-//        canvas.drawLine();
+//        canvas.drawLine(mRatioWidth / 3, 0, mRatioWidth / 3, mRatioHeight, mPaint);
+//        canvas.drawLine(mRatioWidth * 2 / 3, 0, mRatioWidth * 2 / 3, mRatioHeight, mPaint);
+//        canvas.drawLine(0, mRatioHeight / 3 + height - mRatioHeight, mRatioWidth, mRatioHeight / 3 + height - mRatioHeight, mPaint);
+//        canvas.drawLine(0, mRatioHeight*2 / 3 + height - mRatioHeight, mRatioWidth, mRatioHeight*2 / 3 + height - mRatioHeight, mPaint);
     }
 
 }

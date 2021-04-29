@@ -1,13 +1,17 @@
 package com.example.mycarmera;
 
+import android.animation.Animator;
 import android.animation.AnimatorSet;
+import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
+import android.app.Application;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.util.AttributeSet;
 import android.view.View;
+import android.view.animation.Animation;
 
 import androidx.annotation.Nullable;
 
@@ -21,6 +25,8 @@ public class FocusView extends View {
     private float mViewCenterX;
     private float mViewCenterY;
     private boolean mNeedToDrawView;
+    private int animatorInnerRadius;
+    private int animatorOuterRadius;
 
     public FocusView(Context context) {
         this(context, null);
@@ -40,6 +46,9 @@ public class FocusView extends View {
 
         mInnerRadiusPX = DensityUtils.dip2px(context, mInnerRadiusDP);
         mOuterRadiusPX = DensityUtils.dip2px(context, mOuterRadiusDP);
+
+        animatorInnerRadius = DensityUtils.dip2px(context, mInnerRadiusDP);
+        animatorOuterRadius = DensityUtils.dip2px(context, mOuterRadiusDP);
     }
 
     @Override
@@ -62,7 +71,7 @@ public class FocusView extends View {
     }
 
     public void playAnimation() {
-        ValueAnimator animIner = ValueAnimator.ofFloat(mInnerRadiusPX, mInnerRadiusPX - 5, mInnerRadiusPX);
+        ValueAnimator animIner = ValueAnimator.ofFloat(animatorInnerRadius, animatorInnerRadius - 5, animatorInnerRadius);
         animIner.setDuration(500);
         animIner.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
             @Override
@@ -73,7 +82,7 @@ public class FocusView extends View {
             }
         });
 
-        ValueAnimator animOuter = ValueAnimator.ofFloat(mOuterRadiusPX, mOuterRadiusPX + 10, mOuterRadiusPX);
+        ValueAnimator animOuter = ValueAnimator.ofFloat(animatorOuterRadius, animatorOuterRadius + 10, animatorOuterRadius);
         animOuter.setDuration(500);
         animOuter.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
             @Override

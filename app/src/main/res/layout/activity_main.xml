@@ -17,8 +17,9 @@
 
     <com.example.mycarmera.GridLine
         android:id="@+id/grid_line"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"></com.example.mycarmera.GridLine>
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginTop="60dp"></com.example.mycarmera.GridLine>
 
     <com.example.mycarmera.FocusView
         android:id="@+id/focus"
@@ -155,6 +156,16 @@
                 android:layout_centerVertical="true"
                 android:layout_marginLeft="40dp"
                 android:padding="1dp"></com.example.mycarmera.RoundImageView>
+
+            <com.example.mycarmera.MyButton
+                android:id="@+id/myVideoTakePicButton"
+                android:layout_width="60dp"
+                android:layout_height="60dp"
+                android:layout_centerVertical="true"
+                android:layout_marginLeft="40dp"
+                android:visibility="gone">
+
+            </com.example.mycarmera.MyButton>
 
             <com.example.mycarmera.MyButton
                 android:id="@+id/myButton"

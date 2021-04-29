@@ -34,6 +34,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.os.Message;
 import android.provider.MediaStore;
 import android.util.Log;
 import android.util.Size;
@@ -51,11 +52,14 @@ import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
 import static com.example.mycarmera.CameraConstant.ADD_WATER_MARK;
 import static com.example.mycarmera.DensityUtils.dip2px;
+import static com.example.mycarmera.DensityUtils.px2dip;
+import static com.example.mycarmera.Utils.getScreenWidth;
 
 @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
 public class CameraController {
@@ -166,7 +170,6 @@ public class CameraController {
         }
 
         try {
-            //获取CameraManager对象，然后真正打开相机
             //打开相机，第一个参数指示打开哪个摄像头，第二个参数stateCallback为相机的状态回调接口，第三个参数用来确定Callback在哪个线程执行，为null的话就在当前线程执行
             manager.openCamera(String.valueOf(mCameraId), mStateCallback, mBackgroundHandler);
         } catch (CameraAccessException e) {
@@ -184,8 +187,6 @@ public class CameraController {
             @Override
             public void run() {
                 mPreviewTexture.setAspectRatio(mPreviewSize.getHeight(), mPreviewSize.getWidth());
-//                mGridLine.setAspectRatio(mPreviewSize.getHeight(), mPreviewSize.getWidth());
-//                Log.d("setAspectRatio", "getHeight=" + mPreviewSize.getHeight() + ",getWidth=" + mPreviewSize.getWidth());
             }
         });
 
@@ -252,11 +253,11 @@ public class CameraController {
     private void createCameraPreviewSession() {
         try {
             SurfaceTexture texture = mPreviewTexture.getSurfaceTexture();//通过mTextureView获取SurfaceTexture
-            texture.setDefaultBufferSize(mPreviewSize.getWidth(), mPreviewSize.getHeight());////设置TextureView的缓冲区大小
+            texture.setDefaultBufferSize(mPreviewSize.getWidth(), mPreviewSize.getHeight());//设置TextureView的缓冲区大小
             //获取Surface显示预览数据
             Surface surface = new Surface(texture);
             mPreviewRequestBuilder
-                    = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);////创建TEMPLATE_PREVIEW预览CaptureRequest.Builder
+                    = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);//创建TEMPLATE_PREVIEW预览CaptureRequest.Builder
             mPreviewRequestBuilder.addTarget(surface);//CaptureRequest.Builder中添加Surface，即mTextureView获取创建的Surface
             //创建会话，获得CaptureRequest对象，通过CaptureRequest发送重复请求捕捉画面，开启预览。
             //创建相机捕获会话，第一个参数是捕获数据的输出Surface列表，第二个参数是CameraCaptureSession的状态回调接口，当它创建好后会回调onConfigured方法，第三个参数用来确定Callback在哪个线程执行，为null的话就在当前线程执行
@@ -291,7 +292,6 @@ public class CameraController {
             mPreviewRequest = mPreviewRequestBuilder.build();
             mCaptureSession.setRepeatingRequest(mPreviewRequest,
                     mCaptureCallback, mBackgroundHandler);//设置预览,setRepeatingRequest不断的重复mPreviewRequest请求捕捉画面，常用于预览或者连拍场景。
-
         } catch (CameraAccessException e) {
             e.printStackTrace();
         }
@@ -644,10 +644,6 @@ public class CameraController {
     }
 
 
-    public int getScreenWidth(Context context) {
-        return context.getResources().getDisplayMetrics().widthPixels;
-    }
-
     public int getScreenHeight(Context context) {
         return context.getResources().getDisplayMetrics().heightPixels;
     }
@@ -761,7 +757,6 @@ public class CameraController {
             closeSession();//TODO 1 关闭预览session
             choosePreviewAndCaptureSize();//TODO 2 设置大小
             setUpMediaRecorder();//TODO 3 设置录像参数 MediaRecord
-            Log.d("yanweitim", "setUpMediaRecorder startRecordingVideo");
 
             SurfaceTexture texture = mPreviewTexture.getSurfaceTexture();
             assert texture != null;//如果为真那程序继续执行，如果为假就终止程序的执行
@@ -778,10 +773,10 @@ public class CameraController {
             Surface recorderSurface = mMediaRecorder.getSurface();
             surfaces.add(recorderSurface);
             mPreviewRequestBuilder.addTarget(recorderSurface);
-//
-//            //录像时的拍照
-//            Surface picSurface = mImageReader.getSurface();
-//            surfaces.add(picSurface);
+
+            //录像时的拍照
+            Surface picSurface = mImageReader.getSurface();
+            surfaces.add(picSurface);
 //            mPreviewRequestBuilder.addTarget(picSurface);
 
             // Start a capture session
@@ -801,7 +796,7 @@ public class CameraController {
                 public void onConfigureFailed(@NonNull CameraCaptureSession cameraCaptureSession) {
 
                 }
-            }, null);
+            }, mBackgroundHandler);
         } catch (CameraAccessException | IOException e) {
             e.printStackTrace();
         }

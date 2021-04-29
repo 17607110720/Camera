@@ -1,4 +1,4 @@
-package com.example.mycarmera;
+package com.example.mycameratest;
 
 import android.animation.ObjectAnimator;
 import android.content.Context;
@@ -54,11 +54,11 @@ public class AutoFitTextureView extends TextureView {
         setBitmap(blurBitmap);
     }
 
-    public void changeModeAnimator() {
-        ObjectAnimator objectAnimator = ObjectAnimator.ofFloat(this, "alpha", 0.4f,0f,0.2f,0.4f,0.6f,0.8f, 1f);
-        objectAnimator.setDuration(1000);
-        objectAnimator.start();
-
-    }
+//    public void changeModeAnimator() {
+//        ObjectAnimator objectAnimator = ObjectAnimator.ofFloat(this, "alpha", 0.4f,0f,0.2f,0.4f,0.6f,0.8f, 1f);
+//        objectAnimator.setDuration(1000);
+//        objectAnimator.start();
+//
+//    }
 
 }
