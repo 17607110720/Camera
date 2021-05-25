@@ -4,6 +4,7 @@ import android.animation.ObjectAnimator;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.util.AttributeSet;
+import android.view.MotionEvent;
 import android.view.TextureView;
 
 
@@ -60,5 +61,4 @@ public class AutoFitTextureView extends TextureView {
         objectAnimator.start();
 
     }
-
 }

@@ -26,6 +26,7 @@ import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.params.MeteringRectangle;
 import android.hardware.camera2.params.StreamConfigurationMap;
+import android.icu.util.RangeValueIterator;
 import android.media.Image;
 import android.media.ImageReader;
 import android.media.MediaRecorder;
@@ -34,12 +35,14 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
-import android.os.Message;
 import android.provider.MediaStore;
 import android.util.Log;
+import android.util.Range;
 import android.util.Size;
 import android.view.OrientationEventListener;
 import android.view.Surface;
+import android.view.accessibility.AccessibilityNodeInfo;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
@@ -52,13 +55,11 @@ import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
 import static com.example.mycarmera.CameraConstant.ADD_WATER_MARK;
 import static com.example.mycarmera.DensityUtils.dip2px;
-import static com.example.mycarmera.DensityUtils.px2dip;
 import static com.example.mycarmera.Utils.getScreenWidth;
 
 @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
@@ -94,12 +95,14 @@ public class CameraController {
     private int mSensorOrientation;
     private boolean mStartTapFocus = false;
     private boolean mFocusTakePicture = false;
+    public int progress;
 
 
     public CameraController(Activity activity, AutoFitTextureView textureView) {
         this.mPreviewTexture = textureView;
         this.mActivity = activity;
         manager = (CameraManager) mActivity.getSystemService(Context.CAMERA_SERVICE);
+
     }
 
     public void startBackgroundThread() {
@@ -129,8 +132,6 @@ public class CameraController {
             mCameraDevice = cameraDevice;
             choosePreviewAndCaptureSize();
             createCameraPreviewSession();//打开相机成功的话，获取CameraDevice，然后创建会话--createCameraPreviewSession()
-
-
         }
 
         @Override
@@ -178,7 +179,7 @@ public class CameraController {
     }
 
 
-    private void createImagerReader() {
+    private void createImageReader() {
         mImageReader = ImageReader.newInstance(mCaptureSize.getWidth(), mCaptureSize.getHeight(),
                 ImageFormat.JPEG, /*maxImages*/1);//RAW_SENSOR YUV_420_888
         mImageReader.setOnImageAvailableListener(
@@ -193,7 +194,7 @@ public class CameraController {
     }
 
     private CameraCaptureSession.CaptureCallback mCaptureCallback
-            = new CameraCaptureSession.CaptureCallback() {//预览回调
+            = new CameraCaptureSession.CaptureCallback() {
         @Override
         public void onCaptureProgressed(@NonNull CameraCaptureSession session,
                                         @NonNull CaptureRequest request,
@@ -211,11 +212,26 @@ public class CameraController {
     };
 
     public void process(CaptureResult result) {
+        Integer integer = result.get(CaptureResult.SENSOR_SENSITIVITY);
+        Log.d("process", "" + integer);
+
         //Face[] faces = result.get(CaptureResult.STATISTICS_FACES);
+
+        /*FLASH_STATE_UNAVAILABLE--0
+        FLASH_STATE_CHARGING--1
+        FLASH_STATE_READY--2
+        FLASH_STATE_FIRED--3
+        FLASH_STATE_PARTIAL--4*/
+        /*Integer integer = result.get(CaptureResult.FLASH_STATE);//闪光灯状态
+        System.out.println("integer = " + integer);*/
+
 
         if (mFocusTakePicture) {
             Integer afState = result.get(CaptureResult.CONTROL_AF_STATE);
 
+            //AF_STATE_FOCUSED_LOCKED	AF 算法认为已对焦。镜头未移动。
+            //AF_STATE_NOT_FOCUSED_LOCKED	AF 算法无法对焦。镜头未移动。
+            //AF_STATE_PASSIVE_FOCUSED	连续对焦算法认为已良好对焦。镜头未移动。
             if (CaptureResult.CONTROL_AF_STATE_FOCUSED_LOCKED == afState ||
                     CaptureResult.CONTROL_AF_STATE_NOT_FOCUSED_LOCKED == afState ||
                     CaptureResult.CONTROL_AF_STATE_PASSIVE_FOCUSED == afState) {
@@ -244,7 +260,10 @@ public class CameraController {
             mPreviewRequest = mPreviewRequestBuilder.build();
             mCaptureSession.capture(mPreviewRequest,
                     mCaptureCallback, mBackgroundHandler);
-            //mCaptureSession.captureBurst()
+//            mCaptureSession.captureBurst();
+//            mCaptureSession.setRepeatingBurst();
+
+
         } catch (CameraAccessException e) {
             e.printStackTrace();
         }
@@ -270,6 +289,7 @@ public class CameraController {
                                 return;
                             }
                             mCaptureSession = cameraCaptureSession;//从onConfigured参数获取mCaptureSession
+                            setPreviewFrameParams();
 
                             updatePreview();
                         }
@@ -283,6 +303,22 @@ public class CameraController {
         } catch (CameraAccessException e) {
             e.printStackTrace();
         }
+    }
+
+    public void setPreviewFrameParams() {//下发、传参
+        mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF);
+
+        mPreviewRequestBuilder.set(CaptureRequest.SENSOR_SENSITIVITY,//iso
+                progress);
+        Log.d("onProgressChanged", "progress:" + progress);
+
+        mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+        //characteristics.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE);
+        mPreviewRequestBuilder.set(CaptureRequest.SENSOR_EXPOSURE_TIME,
+                100l);//快门打开时间 ns
+
+        updatePreview();
+//        mPreviewRequestBuilder.set(CaptureRequest.STATISTICS_FACE_DETECT_MODE, faceDetectModes[faceDetectModes.length - 1]);//设置人脸检测级别
     }
 
 
@@ -312,7 +348,6 @@ public class CameraController {
             saveNoWaterMark(bytes, mImage);
         }
 
-
     }
 
     private void saveWithWaterMark(byte[] bytes, Image mImage) {
@@ -326,6 +361,7 @@ public class CameraController {
 
         Bitmap bitmapSrc = Bitmap.createBitmap(bitmapStart, 0, 0, bitmapStart.getWidth(), bitmapStart.getHeight(), matrix, true);
         mCameraCallback.onThumbnailCreated(bitmapSrc);//添加缩略图
+
         Bitmap bitmapNew = Bitmap.createBitmap(bitmapSrc.getWidth(), bitmapSrc.getHeight(), Bitmap.Config.ARGB_8888);
         Canvas canvasNew = new Canvas(bitmapNew);
         canvasNew.drawBitmap(bitmapSrc, 0, 0, null);
@@ -402,7 +438,7 @@ public class CameraController {
         if (lenFaceFront()) {
             matrix.postScale(-1, 1);
         }
-        Bitmap srcBitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.length, null);
+//        Bitmap srcBitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.length, null);
         Bitmap bitmapThumbnail = Bitmap.createBitmap(showThumbnail, 0, 0, showThumbnail.getWidth(), showThumbnail.getHeight(), matrix, true);
         mCameraCallback.onThumbnailCreated(bitmapThumbnail);//添加缩略图
         FileOutputStream output = null;
@@ -418,6 +454,38 @@ public class CameraController {
             e.printStackTrace();
         } finally {
             mImage.close();
+            if (null != output) {
+                try {
+                    output.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+    private void simpleSaveNoWaterMark(byte[] bytes, Image image) {
+        Bitmap srcBitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.length, null);
+
+        int thumnailSize = (int) dip2px(mActivity, mActivity.getResources().getDimension(R.dimen.thumbnail_size));
+        //BitmapFactory.decodeByteArray(bytes,)
+        Bitmap thumbnailBitmap = ThumbnailUtils.extractThumbnail(srcBitmap, thumnailSize, thumnailSize, 1);
+//        Bitmap thumbnailBitmap = Bitmap.createScaledBitmap(srcBitmap, thumnailSize, thumnailSize, false);
+        mCameraCallback.onThumbnailCreated(thumbnailBitmap);
+
+        FileOutputStream output = null;
+        try {
+            output = new FileOutputStream(mFile);
+            output.write(bytes);//保存图片到文件
+
+            Uri photouri = Uri.fromFile(mFile);
+
+            mActivity.sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, photouri));
+            mCameraCallback.onTakePictureFinished();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            image.close();
             if (null != output) {
                 try {
                     output.close();
@@ -469,7 +537,7 @@ public class CameraController {
 
     public void beginCaptureStillPicture() {
         try {
-//        //拍照数据会由imageSaver处理，保存到文件，
+            //拍照数据会由imageSaver处理，保存到文件，
             //设置TEMPLATE_STILL_CAPTURE拍照CaptureRequest.Builder
             final CaptureRequest.Builder captureBuilder =
                     mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
@@ -488,15 +556,15 @@ public class CameraController {
                                                @NonNull CaptureRequest request,
                                                @NonNull TotalCaptureResult result) {
                     //提示拍照图片已经保存
-//                    Toast.makeText(mActivity, "Saved: " + mFile, Toast.LENGTH_LONG).show();
+                    //Toast.makeText(mActivity, "Saved: " + mFile, Toast.LENGTH_LONG).show();
                 }
             };
             captureBuilder.set(CaptureRequest.JPEG_ORIENTATION, getJpegRotation(mCameraId, mPhoneOrientation));//90 0 180 270
 
-//            mCaptureSession.stopRepeating();//停止预览,停止任何一个正常进行的重复请求。
-//            mCaptureSession.abortCaptures();//中断Capture,尽可能快的取消当前队列中或正在处理中的所有捕捉请求。
+            //mCaptureSession.stopRepeating();//停止预览,停止任何一个正常进行的重复请求。
+            //mCaptureSession.abortCaptures();//中断Capture,尽可能快的取消当前队列中或正在处理中的所有捕捉请求。
             //重新Capture进行拍照，这时mImageReader的回调会执行并保存图片
-            mCaptureSession.capture(captureBuilder.build(), CaptureCallback, null);
+            mCaptureSession.capture(captureBuilder.build(), CaptureCallback, mBackgroundHandler);
         } catch (CameraAccessException e) {
             e.printStackTrace();
         }
@@ -578,7 +646,10 @@ public class CameraController {
         }
 
         mSensorOrientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION);//方向
-
+        /*Range<Integer>[] ranges = characteristics.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES);//帧率范围
+        for (int i = 0; i < ranges.length; i++) {
+            System.out.println("ranges = " + ranges[1].getUpper());
+        }*/
 
         StreamConfigurationMap map = characteristics.get(
                 CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
@@ -592,7 +663,7 @@ public class CameraController {
         }
         mCaptureSize = getPictureSize(mTargetRatio, captureSizeMap);
 
-        createImagerReader();
+        createImageReader();
     }
 
 
@@ -675,10 +746,13 @@ public class CameraController {
     public void updateManualFocus(Rect rect) {
         if (mStartTapFocus) return;
         mStartTapFocus = true;
+        //CONTROL_AF_REGIONS用于选择为确定良好对焦而需使用的视野 (FOV) 区域的控件。该控件适用于所有可扫描对焦的 AF 模式
         mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_REGIONS, new MeteringRectangle[]{new MeteringRectangle(rect, 1000)});
+        //CONTROL_AE_REGIONS用于选择应该用于确定良好曝光水平的 FOV 区域的控件。该控件适用于除 OFF 模式外的所有 AE 模式。
         mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AE_REGIONS, new MeteringRectangle[]{new MeteringRectangle(rect, 1000)});
         mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_AUTO);
         mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CameraMetadata.CONTROL_AF_TRIGGER_START);
+        //CONTROL_AE_PRECAPTURE_TRIGGER用于在拍摄高品质图像之前启动测光序列的控件
         mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER, CameraMetadata.CONTROL_AE_PRECAPTURE_TRIGGER_START);
         updateCapture();
     }
@@ -723,6 +797,7 @@ public class CameraController {
             Integer facing = characteristics.get(CameraCharacteristics.LENS_FACING);
 
             if (facing != null && facing == CameraCharacteristics.LENS_FACING_FRONT) {
+                mCameraId = BACK_CAMERA_ID;//后置
                 mCameraId = BACK_CAMERA_ID;//后置
             } else {
                 mCameraId = FRONT_CAMERA_ID;//前置
@@ -811,7 +886,8 @@ public class CameraController {
         mMediaRecorder.setVideoEncodingBitRate(10000000);
         mMediaRecorder.setVideoFrameRate(30);
         if (mCurrentMode == CameraConstant.SLOW_MOTION_MODE) {
-            mMediaRecorder.setCaptureRate(120);
+            mMediaRecorder.setCaptureRate(120);//慢动作
+            mMediaRecorder.setCaptureRate(10);//快动作//延时录像
         }
         mMediaRecorder.setVideoSize(mVideoSize.getWidth(), mVideoSize.getHeight());
         mMediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);

@@ -16,6 +16,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.os.Looper;
 import android.os.Message;
 import android.os.StrictMode;
 import android.provider.MediaStore;
@@ -29,6 +30,7 @@ import android.view.WindowManager;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -79,6 +81,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private Handler timeHandler;
     private Handler uiHandler;
     private MyButton myVideoTakePicButton;
+    private SeekBar iso_seekBar;
 
 
     @Override
@@ -93,6 +96,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private void initTextureViewListener() {
+
         mPreviewView.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
@@ -128,6 +132,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 }
                 return true;
             }
+
         });
     }
 
@@ -148,7 +153,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         picModeTextView = findViewById(R.id.switch_mode_pic);
         videoModeTextView = findViewById(R.id.switch_mode_video);
         slowMotionModeTextView = findViewById(R.id.switch_mode_slow_motion);
-
         ratio_4_3 = findViewById(R.id.switch_ratio4_3);
         ratio_16_9 = findViewById(R.id.switch_ratio16_9);
         ll_switch_ratio = findViewById(R.id.ll_switch_ratio);
@@ -161,6 +165,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         video_time = findViewById(R.id.video_time);
         pic_time = findViewById(R.id.pic_time);
         mFocusView = findViewById(R.id.focus);
+        iso_seekBar = findViewById(R.id.iso_SeekBar);
+
 
         goto_gallery.setBackground(getDrawable(R.drawable.drawable_shape));
 
@@ -177,6 +183,30 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         mFlashSwitch.setCustomCheckBoxChangeListener(this);
         mCameraController = new CameraController(this, mPreviewView);
         mCameraController.setCameraControllerInterFaceCallback(this);
+        iso_seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            private int progress;
+
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {// 数值改变
+                Log.d("onProgressChanged", "progress:" + progress);
+                this.progress = progress;
+                mCameraController.progress = progress;
+                mCameraController.setPreviewFrameParams();
+
+
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {//开始拖动
+
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {// 结束拖动
+//                mCameraController.setPreviewFrameParams();
+
+            }
+        });
     }
 
     //拍照模式
@@ -441,8 +471,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 }
 
             }
-
-            ;
         };
 
 

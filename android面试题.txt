@@ -1,0 +1,600 @@
+Camera基础:
+1，常用API类介绍
+    CameraManager：相机管理类，打开和关闭系摄像头，获取相机特性
+    CameraDevice：相机设备类，创建请求和Session
+    CameraCaptureSession：相机会话类，向相机设备发送获取图像的请求
+    CameraCharacteristics：相机特性，摄像头的各种特性，如获取镜头朝向
+    ImageReader：图片数据流，从Surface接受渲染的图像数据
+    CaptureRequest：相机请求类，表示一个捕捉请求。
+                    为不同的场景（预览、拍照）创建不同的捕捉请求，
+                    并可以配置不同的捕捉属性，如：预览分辨率，预览目标，对焦模式、曝光模式等等。
+    CaptureResult：相机捕捉结果类
+    StreamConfigurationMap：管理摄像头支持的所有输出格式和尺寸
+
+2，起预览流程代码实现
+    CameraManager.openCamera()方法传入CameraId
+        在回调中onOpened()拿到CameraDevice
+    CameraDevice.createCaptureSession()传入预览surface和ImageReader.surface两路流
+        在回调中onConfigured()拿到CameraCaptureSession
+    CameraCaptureSession.setRepeatingRequest()传入CaptureRequest--模板TEMPLATE_PREVIEW
+
+3，拍照流程代码实现
+    CameraCaptureSession.capture()传入CaptureRequest--模板TEMPLATE_STILL_CAPTURE
+
+4，录像流程代码实现
+开始录像:
+    关闭预览Session()
+    初始化MediaRecoder
+    创建录像Session--createCaptureSession()传入预览Surface和MediaRecorder.Surface两路流
+    回调onConfigured()中拿到CameraCaptureSession
+        setRepeatingRequest()传入CaptureRequest--模板TEMPLATE_RECORD
+        MediaRecorder.start()开始录像
+
+停止录像:
+    调用MediaRecorder.reset及stop，然后重新创建预览session
+
+5,怎么打开闪光灯，关闭闪光灯
+    CaptureRequest.Builder.set()下发参数
+    Key为CaptureRequest.FLASH_MODE--控制当前自动曝光模式的选择
+    Value有：
+           FLASH_MODE_OFF--关闭
+           FLASH_MODE_SINGLE--闪一下
+           FLASH_MODE_TORCH--常亮
+
+6，怎么下发对焦模式，对焦模式有哪些
+    CaptureRequest.Build.set()下发参数
+    Key为CaptureRequest.CONTROL_AF_MODE--控制当前自动聚焦模式的选择
+    Value有：
+            CONTROL_AF_MODE_OFF--AF关闭，framework/app直接控制镜头的位置
+            CONTROL_AF_MODE_AUTO--自动对焦。镜头在该模式下不会移动，除非AF被触发
+            CONTROL_AF_MODE_MACRO--微距自动对焦。镜头在该模式下不会移动，除非 AF 被触发
+            CONTROL_AF_MODE_CONTINUOUS_VIDEO--流畅连续对焦，用于录制视频。触发后会立刻将焦点锁定在当前位置。取消后即会恢复连续对焦
+            CONTROL_AF_MODE_CONTINUOUS_PICTURE--快速连续对焦，用于快门零延迟静像拍摄。待当前处于活动状态的扫描结束后，触发即可锁定焦点。取消后即会恢复连续对焦
+            CONTROL_AF_MODE_EDOF--高级扩展景深对焦。该模式下没有自动对焦扫描，因此触发或取消操作均无效。图像由 HAL 自动对焦。
+
+    CONTROL_AF_TRIGGER
+        CONTROL_AF_TRIGGER_START--触发自动对焦扫描的启动
+        CONTROL_AF_TRIGGER_CANCEL--触发自动对焦扫描的取消操作
+
+7，怎么设置iso,曝光时间
+    CaptureRequest.Builder.set(CaptureRequest.SENSOR_SENSITIVITY,传入的值);
+    CaptureRequest.Builder.set(CaptureRequest.SENSOR_EXPOSURE_TIME,传入的值);
+
+8，怎么获取对焦状态
+    CaptureResult.get(CaptureResult.CONTROL_AF_STATE)返回Integer类型
+        //CONTROL_AF_STATE_FOCUSED_LOCKED	AF 算法认为已对焦。镜头未移动。
+        //CONTROL_AF_STATE_NOT_FOCUSED_LOCKED	AF 算法无法对焦。镜头未移动。
+        //CONTROL_AF_STATE_PASSIVE_FOCUSED	连续对焦算法认为已良好对焦。镜头未移动。
+
+9，拍照录像模式如何切换
+    （1）关闭相机（closeSessionAndImageReader、CameraDevice.close()）
+    （2）MediaRecorder.release()
+    （3）切换比例
+    （4）重新打开相机openCamera
+
+10，前后置如何切换
+    （1）关闭相机
+    （2）CameraManager.getCameraCharacteristics(Id)拿到相机特性
+    （3）相机特性characteristics.get(CameraCharacteristics.LENS_FACING)拿到镜头朝向
+    （4）根据镜头朝向判断前后置进而修改cameraId
+    （5）重新打开相机
+
+11，4:3/16:9分辨率切换如何实现
+    （1）关闭相机
+    （2）设置比例1.333f/1.777f
+    （3）相机特性CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP拿到StreamConfigurationMap，
+    （4）通过StreamConfigurationMap.getOutputSizes拿到相机支持的所有尺寸SizeMap
+    （5）根据当前屏幕的宽、传入的比例和SizeMap拿到最接近的尺寸（预览尺寸、拍照尺寸、录像尺寸）
+    （6）根据尺寸设置TextView和Surface的宽高及ImageReader的宽高
+    （7）重新打开相机
+
+12,怎么获取小缩略图
+    （1）ImageReader回调从底层拿图片数据bytes
+    （2）BitmapFactory.decodeByteArray(bytes)将图片数据加载到内存中 生成BitmapSrc
+    （3）createBitmap(BitmapSrc, smallSize, matrix)
+    （4）setBitmap(bitmap) 更新到UI
+
+13，点击缩略图进入相册如何实现
+    启动打开图库包名的Activity，intent.setData(图片uri)
+
+14，拍照方向如何设置
+    下发参数CaptureRequest.Builder.set(JPEG_ORIENTATION, 根据id和手机传感器计算出来的需要旋转的角度值)
+
+15，水印功能如何实现
+    //   通过加载到内存中的bitmapSrc生成一个新的不带图片数据只有源数据宽高的的BitmapNew
+    （1）Bitmap.createBitmap(bitmapSrc.getWidth(),getHeight())
+    //   通过bitmapNew生成画布Canvas，再画上图片数据和文字
+    （2）drawBitmap(bitmapSrc)和drawText(水印文字)
+    //   将画后的bitmap保存为图片
+    （3）bitmapNew.compress(Bitmap.CompressFormat.JPEG, 100, output);
+
+16，ImageFormat格式有哪些
+    常用到JEPG、YUV_420_888、NV21、RAW_SENSOR
+
+17，Surface，SurfaceTexture,ImagerReader.Surface,MediaRecorder.Surface几个Surface的区别
+    Surface，可以理解为容器，存放图片数据
+    SurfaceTexture，可将图片数据变成纹理供opengl es绘制，可以做滤镜
+    ImageReader.Surface，用来获取拍照的数据
+    MeadiaRecoder.Surface，用来获取录像数据
+
+18、yuv、jpeg、bitmap，YUV和NV21格式的区别
+    yuv--一种颜色编码格式，Y代表亮度信息（灰度），UV分别代表色彩信息
+    JEPG--图像压缩标准,保存的是被压缩处理过的图片数据
+    bitmap--位图，图片在内存中的表示方式
+    YUV_420_888--android yuv通用格式
+    NV21--yuv_420的一种，实际项目中，拿到YUV数据，需转换为NV21，然后传给算法处理
+    RAW_SENSOR--未经压缩处理的，sensor只出图像数据
+
+19、JIN简单介绍
+    Java Native Interface
+    Java和C/C++互相调用的接口
+
+20，4：3、16：9预览拉伸变形如何处理
+    保证TextureView和预览Surface的宽高比一致
+
+21，自己实现的camera应用中用到几个线程
+    两个，一个主线程（UI线程），一个子线程（相机处理线程）
+
+22，自己实现功能时碰到了哪些问题，如何解决
+    （1）连续点击拍照按钮、频繁录像开始和结束、频繁前后置切换/比例切换/模式切换，会导致相机app报错异常退出。
+        原因：因为这些反复的操作对底层有频繁的请求，当请求没有完成时接着再次请求的话，底层可能会报错。
+        解决思路：在一次点击拍照后对按钮进行不可启动状态，等待底层将数据返回保存照片完成时，再次启用按钮。
+    （2）点击拍照完成后，缩略图UI更新比较慢。
+        原因：没有对缩略图大小进行处理，导致原始的图片很大加载到内存就相对于小的缩略图慢，甚至可能导致OOM
+        解决思路：一般会缩略图的生成进行缩小处理，比如将ARGB_8888格式更换为RGB_565格式，或者设置图片采样率，使图片占用更少的内存
+
+23，16:9和4:3哪个视角更大
+    4:3
+
+24，4:3和16:9的常用的预览尺寸多少
+    1440:1080
+    1920:1080
+
+25，预览尺寸，拍照尺寸，录像尺寸如何获取：
+    （1）先通过CameraManager.getCameraCharacteristics(Id)拿到相机特性Characteristics
+    （2）其次通过Characteristics.get(SCALER_STREAM_CONFIGURATION_MAP)拿到StreamConfigurationMap
+    （3）然后通过map.getOutputSizes(SurfaceTexture.class/ImageFormat.JPEG)拿到相机支持的所有尺寸
+    （4）最后从map集合中选择一个我们需要的预览、拍照以及录像的尺寸
+
+26，创建回话创建请求之类的线程和回调线程是不是同一线程
+    是同一线程，都在子线程
+
+27，预览和录像的区别
+    （1）使用的模板不同，预览template_preview；录像template_record
+    （2）创建Session时传入的流不同，预览TextView.Surface；录像TextView.Surface和MediaRecoder.Surface
+
+28.在录像上拍照应该怎么实现
+    （1）模板修改为TEMPLATE_VIDEO_SNAPSHOT
+    （2）在创建录像Session时，传入第一个参数的集合多添加一个拍照的Surface--ImageReader.Surface
+
+29，如何获取Jpeg，YUV，Raw照片数据
+    //在创建ImageReader的时候，传入不同的照片格式
+    //ImageFormat.JEPG/ImageFormat.YUV_420_888/ImageFormat.RAW_SENSOR
+    ImageReader.newInstance(Width, Height,ImageFormat.JPEG, 1)
+
+30，如何在开启相机的时候判断开启的是前置摄像头
+    （1）通过CameraManager.getCameraCharacteristics(Id)拿到相机特性
+    （2）相机特性Characteristics.get(CameraCharacteristics.LENS_FACING)拿到相机镜头朝向
+    （3）判断当前朝向为前置LENS_FACING_FRONT--0 还是 后置LENS_FACING_BACK--1
+
+31. MediaRecorder设置哪些参数
+    音频源：setAudioSource(MediaRecorder.AudioSource.MIC);
+    视频源：setVideoSource(MediaRecorder.VideoSource.SURFACE);
+    录像输出格式：setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
+    录像输出路径：setOutputFile(mFile.getPath());
+    视频编码比特率：setVideoEncodingBitRate(10000000);
+    录像帧率：setVideoFrameRate(30);
+    录像宽高：setVideoSize(mVideoSize.getWidth(), mVideoSize.getHeight());
+    音频编码：setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
+    视频编码：setVideoEncoder(MediaRecorder.VideoEncoder.H264);
+
+32,如何获取帧率范围：
+    相机特性Characteristics.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES)
+    返回一个Range类型的数组
+
+33. CameraId怎么拿到
+    CameraManager.getCameraIdList();
+    返回一个String数组包含相机支持的所有ID
+
+34. 怎么获取到闪关灯的状态：
+    CaptureResult.get(CaptureResult.FLASH_STATE)
+    返回Integer类型
+        FLASH_STATE_UNAVAILABLE--0
+        FLASH_STATE_CHARGING--1
+        FLASH_STATE_READY--2
+        FLASH_STATE_FIRED--3
+        FLASH_STATE_PARTIAL--4
+
+35，实现连拍的API是哪个:
+    CameraCaptureSession.setRepeatingBurst()
+    CameraCaptureSession.captureBurst()
+
+36,相机模板有哪些：
+    template_preview--预览
+    template_still_capture--拍照
+    template_record--录像
+    template_video_snapshot--录像时拍照
+    template_zero_shutter_lag--零快门延时拍照
+    template_manual--手动拍照
+
+37,慢动作如何实现：
+    在设置MediaRecorder参数的时候判断当前模式
+    setCaptureRate(120)
+
+38,前后置切换如何实现：
+    （1）关闭相机（（closeSessionAndImageReader、CameraDevice.close()））
+    （2）切换相机ID：
+        根据相机特性Characteristics.get(LENS_FACING)判断相机ID，进行id修改
+    （3）重新打开相机
+
+39，相机预览卡顿原因：
+    （1）打开相机openCamera、创建预览会话createCaptureSession
+         和连续请求画面setRepeatingRequest没有放在子线程里面，而是在主线程请求
+    （2）没有及时处理应该被回收的对象，没有关闭IO资源等等，导致严重的内存泄漏
+    （3）大量的for循环创建临时性的变量，导致内存抖动，引起频繁的gc
+
+40，bitmap缩略图，bitmap拿到的数据是从哪里来的，
+是不是直接从底层获取的，在哪个阶段怎么过去的数据
+    在点击拍照完成后
+    ImageReader的回调函数onImageAvailable(ImageReader reader)从底层拿到数据，
+    将底层传来的数据转换成byte数组然后解析成Bitmap加载到内存
+
+41,Java泛型在Camera中哪里遇到过
+    （1）创建会话createCaptureSession()第一个参数运用到泛型
+    （2）CaptureRequest下发参数key,value里面用到泛型
+
+42,ImageReader如何创建
+    ImageReader.newInstance(Width, Height,ImageFormat.JPEG, maxImages)
+
+43.功能实现过程实现那个功能用了最长时间，
+遇到了什么问题，怎么解决的
+    （1）打开相机光线很暗
+        原因：把3A模式总开关关闭了，CameraRequestBuilder.set(CaptureRequest.CONTROL_MODE,CameraMetadata.CONTROL_MODE_OFF);
+    （2）iso参数下发没有效果
+        原因：参数下发，但是没有重新发送请求和关闭CONTROL_AE_MODE
+
+
+44.相机怎么实现摄像头切换（CameraID怎么获取，
+怎么判断当前摄像头是前置还是后置）
+    相机特性获取当前镜头朝向进行判断，然后根据需求修改ID
+
+45，怎么理解相机的稳定性
+    运行流畅、不闪退、响应快
+
+Android基础：
+1，Android四层架构介绍：
+    Application：各种手机应用app，运行在虚拟机上
+    Application framework：Google提供的用来开发应用的API框架
+    Libraries：系统提供的库，SQLite，Opengl
+    Linux kernel：驱动层，相机驱动、蓝牙驱动
+
+2,service的杀死方式
+    在startService中：自身调用stopSelf()，stopService(intent)；
+    在bindService中：unbindService(ServiceConnection)，当所有的Activity与这个服务都解绑时，服务自动destroy
+
+3，两个Activity 之间跳转时必然会执行的是哪几个生命周期方法？
+    Activity1-》Activity2：
+        Activity1：onPause()->Activity2：onCreate()、onStat()、onResume()->Activity1：onStop()
+    Activity2返回到Activity1
+        Activity2：onPause()->Activity1：onRestart()、onStart()、onResume()->Activity2：onStop()、onDestory()
+
+4，横竖屏切换生命周期怎么走
+    先把竖屏Activity杀死，然后重新创建横屏的Activity
+    onPause()、onStop()、onDestroy()、onCreate()、onStart()、onResume()
+
+5，点击Home键，activity生命周期怎么走
+    onPause()、onStop()，点击进入：onRestart()、onStart()、onResume()
+
+6，Activity怎么传递数据给Service
+    （1）直接通过Intent绑定数据，在服务中getExtra
+    （2）通过IBinder对象，实现宿主（Activity）和Service的交互
+    （3）运用广播机制传递数据，在服务中广播接收者的onReceiver()方法获取数据、
+    （4）使用Messenger交互:Messenger（信使）是一种轻量级的IPC方案，底层是用AIDL实现的，通过它可以在不同进程间传递Meesage对象
+    （5）使用AIDL进行通信
+
+7,怎么去发送广播
+    先注册广播接收者：
+        静态：(XML)
+             <receiver android:name=".MyReceiver">
+                <intent-filter>
+                    <action android:name="com.demo.recriver"/>
+                </intent-filter>
+             </receiver>
+        动态：(动态注册的广播接收器要取消注册，unregisterReceiver())
+            intentFilter.addAction("XXX");
+            registerReceiver(receiver, intentFilter)
+
+    intent.setAction("XXX")
+    sendBroadcast(intent)
+
+8，广播能不能被拦截
+    能，调用 abortBroadcast()方法
+    有序广播可以在优先级较高的广播接收器里被拦截
+
+9，android中如何创建Activity,Service,BroadCastReceiver,ContentProvider
+    （1）自定义MyActivity继承AppCompatActivity，在onCreate方法里面绑定对应的布局文件setContentView(R.layout.activity_main)
+         实现Activity的跳转，通过startActivity(intent)
+    （2自定义MyService继承Service，重写父类方法，然后通过startService(intent)开启服务或者bindService(intent, conn, Service.BIND_AUTO_CREATE)绑定服务
+    （3）自定义MyReceiver继承BroadcastReceiver，实现onRecive方法用于通过sendBroadcast(intent)发送的广播
+    （4）自定义MyDataBaseProvider继承ContentProvider，重写6个抽象方法，ContentResolver对ContentProvider中共享的数据进行增删改查操作
+
+10，Activity四种启动模式介绍:
+    （1）standard：标准模式，每次启动创建新的Activity
+    （2）singleTop：单顶模式，栈顶复用（onPause->onNewIntent->onResume）
+    （3）singleTask：单任务模式，弹出其他的Activity，使自己处于栈顶
+         自己启动自己的时候，和栈顶复用生命周期方法走向一致
+         其他：onRestart->onStart->onNewIntent->onResume
+    （4）singleInstance：单例模式，单独创建一个新栈，来电界面、锁屏
+     设定方法：1、XML中设置android:launchMode
+              2、Intent中设置intent.setFlags（优先级更高）
+
+11，service的生命周期介绍
+    startService()：通过startService启动服务，一旦启动，服务可以在后台无限期运行，即使启动它的组件已经被销毁。如果当前进程被杀死，服务也会销毁。
+                    onCreate，onStart/onStartCommand，onDestroy
+    bindSercice()：通过bindService()绑定服务，Bound状态的服务提供了一个客户服务器接口来允许组件与服务进行交互，如发送请求，获取结果，甚至通过IPC来进行跨进程通信。
+                    onCreate，onBind，onUnbind，onRebind，onDestroy
+                    多个组件可以同时绑定到该服务，只有全部取消绑定后，该服务被销毁。
+
+12，Activity的作用
+    一个用户界面，在生命周期的onResume()方法中可见可交互
+
+13，Service的作用
+    用于进行一些不需要用户交互的后台任务（可理解为没有界面的Activity），如音乐播放器
+    运行在主线程，依赖于创建它的应用程序进程
+
+14，Service生命周期函数运行在哪个线程
+    主线程
+
+15，启动服务或绑定服务后，服务运行在哪个进程
+    依赖于创建它的应用程序进程
+
+16，service的启动方式
+    （1）通过startService启动服务
+    （2）通过bindService()绑定服务
+
+17，处理耗时操作的服务是哪个
+    IntentService
+
+18，广播的作用
+    组件间的交互，比如监测电量、网络状态等
+
+19，广播的分类
+    普通广播、有序广播、系统广播
+
+20，广播的注册方式有哪些
+    动态注册：代码中调用registerReceiver(mReceiver, intentFilter)
+    静态注册：XML清单文件中
+            <receiver
+                android:name=".MyReceiver">
+                <intent-filter>
+                    <action android:name="XXX.XXX" />
+                </intent-filter>
+            </receiver>
+
+21，ContentProvider的作用，如何实现
+    跨进程通信，将本应用的数据暴露给其他应用访问的工具
+    ContentProvider将数据发布出来，ContentResolver对象结合Uri进行调用，通过ContentResolver对象可以调用ContentProvider的增删改查方法
+    如相机中缩略图刷新，将图/视频所封装的表中的数据提供给相机调用查询
+    实现：
+        1.使用SQLite技术，创建好数据库和数据表
+        2.新建类继承ContentProvider
+        3.重写6个抽象方法
+        4.创建UriMatcher，定义Uri规则
+        5.在Manifest中注册provider
+        6.ContentResolver对ContentProvider中共享的数据进行增删改查操作
+
+22，常用的布局有哪些
+    LinearLayout线性布局
+    FrameLayout帧布局
+    RelativeLayout相对布局
+
+23,Android数据的四大存储方式介绍：
+     Android系统中，数据基本都是私有的的，都是存放于“data/data/程序包名”目录下
+    （1）SharedPreferences：以Key-Value形式存储在XML文件中，一般用来保存应用中的设置属性(data/data/packagename/shares_prefs)
+    （2）SQLite数据库：轻量级数据库，支持基本SQL语法。SQLiteDatabase的类，封装了一些操作数据库的API。(data/data/packagename/databases)
+    （3）File文件：即使用I/O流的形式存储，常用于存储大量数据，更新数据不方便
+    （4）ContentProvider内容提供者：进程间数据共享，数据源可以是sqlite，也可以是xml相关类。
+
+24，Handler的作用是什么
+    实现线程间的通信，用来对message进行处理和发送
+
+25，怎么实现主线程给子线程发消息
+    这里有个问题，当在主线程使用子线程Handler时，子线程的Handler没有初始化完毕怎么办?
+
+    //（1）创建一个子线程，初始化Looper
+        public void run() {
+            //当子线程给主线程发时不需要创建Looper，因为主线程默认会调用该方法
+            //当主线程给子线程发送消息时，子线程需要创建Looper
+            Looper.prepare();
+            handler=new Handler(){
+                @Override
+                public void handleMessage(Message msg) {
+                    Log.d("子线程",msg.obj+"");
+                }
+            };
+            //启动Looper
+            Looper.loop();
+        }
+
+    //（2）将子线程申明为全局变量，在主线程初始化子线程并start
+            thread1 = new MyThread1();
+            thread1.start();
+            //哪个线程给哪个线程发，就调用接收方的handler
+            Message message = thread1.getHandler().obtainMessage();
+            message.obj = "主线程给子线程1发消息";
+            thread1.getHandler().sendMessage(message);
+
+    想给哪个线程发消息,就使用目标线程的Handler.sendMessage(message)
+    而区别Hander是哪个线程的，就是Handler持有哪个线程的Looper
+
+26，怎么实现子线程给主线程发消息
+    （1）主线程初始化Handler，重写handleMessage()接受子线程发送的消息（主UI线程系统就初始化了一个Looper对象，无需创建Looper）
+    （2）在子线程里面handler.sendMessage(message)//这里的handler是在主线程初始化的全局变量，是属于主线程的Handler，
+                                             这样在主线程的handleMessage()中就可以收到子线程发来的Message
+
+
+27，MessageQueue，Looper， Hanlder，Message这几个对象的作用
+    MessageQueue，消息队列，存放消息Message
+    Looper，消息循环，循环取出MessageQueue里面的Message，并交给相应的Handler处理（每个线程只有一个Looper）
+    Handler，把消息发送给Looper管理的MessageQueue，并负责处理Looper分发给它的消息
+    Message，Handler发送和处理的消息，由MessageQueue管理
+
+28，一个线程里面可以有多少个Handler，有多少个looper，有多少个MessageQueue，
+    一个线程只能有一个Looper，一个MessageQueue，可以多个Handler
+
+29，不同Handler发送消息到同一个消息队列，怎么区分是哪个handler发送的
+    参数target，它决定了Message所关联的Handler，
+    msg.target = this;//会把this赋值给msg.target,此时target就指向当前Handler
+
+30，自定义VIew流程介绍
+    分类:
+        (1)继承单个View,例如具体的Button
+        (2)继承ViewGroup,例如LinearLayout
+        (3)自定义组合View,将系统控件组合在一起
+    重写父类方法:测量onMeasure,布局onLayout,绘制onDraw
+        继承单个view必须实现onDraw
+        继承ViewGroup必须实现onMeasure和onLayout(onDraw在子View已经实现)
+
+31，如何获取xml定义的view的宽高
+    (1)在onMeasure方法中,MeasureSpec.getSize(widthMeasureSpec)
+    (2)在onSizeChange()方法中
+    (3)getMeasuredWidth()
+    (4)getWidth()-在onLayout方法后
+
+32，onMeasure,onSizeChange,onDraw的执行顺序
+    onMeasure->onSizeChange->onLayout->onDraw
+
+33，MeasureSpec的作用
+    MeasureSpec.getSize()拿到xml中定义的view的宽高
+    MeasureSpec.getMode()拿到xml中定义的view的模式
+        MeasureSpec.EXACTLY  ->  wrap_content和指定宽高
+        MeasureSpec.AT_MOST  ->  match_parent
+
+34，常用动画有哪些，分别是怎么使用的
+    Android中三种动画:
+        (1)帧动画:
+                    在xml文件中,定义多张图片,设置播放时间,按顺序播放
+                    通过加载资源文件
+                    animationDrawable = (AnimationDrawable) getResources().getDrawable(R.drawable.frame_anim)
+                    animationDrawable.start()
+
+        (2)补间动画:两种方式实现，可对控件进行透明度、缩放、平移、旋转操作
+                    (1)AnimationUtils.loadAnimation(this, R.anim.scaleAnim);//xml
+                    (2)new ScaleAnimation(0.0f,1.4f,0.0f,1.4f,0.5f,0.5f);//代码
+                       scaleAnim.setDuration(700);
+                    tv.startAnimation(scaleAnim);//播放
+
+        (3)属性动画:
+                    (1)ValueAnimator：值动画是通过监听值的变化，手动改变控件属性的值来实现动画效果
+
+                        valueAnimator = ValueAnimator.ofInt(0, 1000, 20);//设置值的变化
+                        valueAnimator.setDuration(3000);
+                        //监听值的变化，并根据值改变控件属性
+                        valueAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+                                   @Override
+                                   public void onAnimationUpdate(ValueAnimator animation) {
+                                       int value = (int) animation.getAnimatedValue();
+                                       tv.layout(value, value, tv.getWidth()+value, tv.getHeight()+value);
+                                   }
+                               });
+                        valueAnimator.start();
+
+                    (2)ObjectAnimator：对象动画是通过改变控件的属性值来改变控件的形态
+
+                     //alpha、scaleX/scaleY、translateX/translateY、rotation
+                     objectAnimator = ObjectAnimator.ofFloat(tv, "alpha", 1,  0.2f,1);
+                     objectAnimator.setDuration(2000);
+                     objectAnimator.start();
+
+35，事件分发机制介绍
+    处理对屏幕的点击滑动等事件（按下、滑动、抬起与取消）
+        按下:ACTION_DOWN
+        滑动:ACTION_MOVE
+        抬起:ACTION_UP
+        触摸动作取消:ACTION_CANCEL（滑动超出控件边界时	）
+    事件流以按下为开始，中间可能有若干次滑动，以抬起或取消作为结束。
+
+    Activity包括了ViewGroup，ViewGroup又可以包含多个View
+    相关方法：
+        Activity和View--dispatchTouchEvent，onTouchEvent
+        ViewGroup--dispatchTouchEvent，onInterceptTouchEvent,onTouchEvent
+    dispatchTouchEvent方法是负责决定是否向下分发事件，由上往下。
+    onTouchEvent方法是对事件进行处理的方法，由下往上。
+    onInterceptTouchEvent方法是ViewGroup类型控件独有的，它的作用是决定是不是拦截当前事件。
+
+    在安卓对事件分发的处理过程中，主要是对按下事件作分发，进而找到能够处理按下事件的组件。
+    对于事件流中后续的事件（如滑动、抬起等），则直接分发给能够处理按下事件的组件
+
+36，事件分发流程介绍
+    安卓事件分发主体思想：由父组件不断向子组件分发，若子组件能够处理，则立刻返回。
+                        若子组件都不处理，那传递到底层的子组件，再返回回来。
+
+37，事件冲突处理介绍，举例怎么处理
+    同一时刻只能由某一个View或者ViewGroup消费拦截
+    举例：
+        滑动方向不同--ScrollView里面嵌套ViewPage
+        滑动方法相同--ViewPager嵌套ViewPager
+
+    优先级:OnTouchListener > onTouchEvent > onClickListener
+38，什么是线程，什么是进程
+    一个应用app可以理解为一个进程，线程是比进程更小的执行单位，一个进程可包含多个线程
+
+39，什么是并发，什么是并行
+    并发：多个指令，同一时刻只能有一个指令执行，多个进程指令被快速轮换执行
+    并行：同一时刻，多个指令在多个处理器上同时执行　
+
+40，线程的创建方式有哪些
+    （1）直接继承Thread类
+    （2）实现Runnable接口
+    （3）实现Callable接口
+
+41，线程的五种状态介绍
+    （1）新建状态(New)：线程对象被创建时后进入新建状态
+    （2）就绪状态(Runnable)
+    （3）运行状态(Running)
+    （4）阻塞状态(Blocked)
+    （5）死亡状态(Dead)
+
+42，线程常用方法作用：
+  join()， sleep()，interrupt()，yield()，wait()，suspend()，resume()，wait,notify()
+43,wait,notify的区别
+44，如何停止线程 
+45，多线程的好处
+46，什么是线程安全 
+47，什么是线程同步
+48，线程同步问题如何处理，举例处理过的问题
+49，suynchronized修饰同步方法和同步代码块有什么区别
+50，Android提供了常用的操作多线程的方式
+51，常用的设计模式有哪些，举例你写过的设计模式代码及在相机中的应用
+52，什么是内存泄漏
+53,什么是内存溢出OOM
+54，分别介绍java四种引用
+55，举例说明哪些情况可能引起内存泄漏及内存泄漏如何解决
+56，内存泄漏检测的工具介绍
+57，ANR是什么
+58，ANR的原因，如何避免
+59，怎么理解性能优化
+60，怎么理解内存优化
+61，java内存机制，堆，栈，方法区介绍
+62，内存优化的优点
+63，跨进程通信的方式有哪些及如何实现
+64，Surface,View，SurfacaeTexture,SurfaceView，GLsurfaceview,Textureview区别
+65,JNI编程介绍
+66,MVP/MVC/MVVM介绍
+67.列举一个Java多线程的例子
+68,synchronized可以修饰什么
+69,若一个线程在synchronized同步代码块里面自动wait,
+怎样让程序继续执行
+70,synchronized修饰的内容，怎么判断作用的范围
+71,你平时开发中用了哪些引用
+72,多线程同步在哪里使用 
+73,线程wait后，如何唤醒指定的线程
+72,camera中哪些是观察者模式
+
+
+
+
+
+
+
+
