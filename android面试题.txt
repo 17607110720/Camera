@@ -230,8 +230,8 @@ Camera基础:
 39，相机预览卡顿原因：
     （1）打开相机openCamera、创建预览会话createCaptureSession
          和连续请求画面setRepeatingRequest没有放在子线程里面，而是在主线程请求
-    （2）没有及时处理应该被回收的对象，没有关闭IO资源等等，导致严重的内存泄漏
-    （3）大量的for循环创建临时性的变量，导致内存抖动，引起频繁的gc
+    （2）内存泄漏：没有及时处理应该被回收的对象，没有关闭IO资源等等，导致严重的内存泄漏
+    （3）内存抖动：大量的for循环创建临时性的变量，导致内存抖动，引起频繁的gc
 
 40，bitmap缩略图，bitmap拿到的数据是从哪里来的，
 是不是直接从底层获取的，在哪个阶段怎么过去的数据
@@ -252,7 +252,6 @@ Camera基础:
         原因：把3A模式总开关关闭了，CameraRequestBuilder.set(CaptureRequest.CONTROL_MODE,CameraMetadata.CONTROL_MODE_OFF);
     （2）iso参数下发没有效果
         原因：参数下发，但是没有重新发送请求和关闭CONTROL_AE_MODE
-
 
 44.相机怎么实现摄像头切换（CameraID怎么获取，
 怎么判断当前摄像头是前置还是后置）
@@ -585,7 +584,7 @@ Android基础：
     （3）更快的响应程序
 
 46，什么是线程安全
-    多个线程对同一个共享数据进行操作时，线程没来得及更新共享数据，从而导致另外线程没得到最新的数据
+    多个线程对同一个共享数据进行操作时，线程的调度顺序不影响任何结果（不会导致数据的脏读）
 
 47，什么是线程同步
     通过人为的控制和调度，保证共享资源的多线程访问成为线程安全，来保证结果的准确
@@ -594,12 +593,21 @@ Android基础：
     （1）使用synchronized锁修饰代码块或者方法
     （2）使用Lock锁机制，在需要加锁的代码区域上进行lock加锁和unlock手动解锁
      举例：
+        （1）多窗口买票问题，如果不加锁则存在线程安全问题，出现了重票（有的票会被反复卖出，ticket未被减少时就打印出来了）错票。
+
+        （2）相机拍照时获取的多张照片的标号问题：多个线程去保存照片，照片的标号是一个共享资源，如果不上锁则可能导致脏读
+
+     解决思路：
+        将此过程的代码看作成一个区域，当有线程进去时，装锁，不让其他线程进来操作，直到此线程生命周期结束
+
+
+
         生产者消费者问题：如果没有产品了，店员会告诉消费者等一下（wait），如果有产品了再通知（notify）消费者来取走产品
         顺序打印问题：实现A->B->C三个线程顺序轮流打印，通过lock上锁，判断标志位，{do something}，修改标志位，通知下一个线程signal()、unlock解锁 完成功能
 
 49，synchronized修饰同步方法和同步代码块有什么区别
      同步代码块是通过锁定一个指定的对象，来对同步块中包含的代码进行同步；
-     同步方法是对这个方法块里的代码进行同步，锁定的对象是同步方法所属的主体对象自身
+     同步方法是对这个方法里的代码进行同步，锁定的对象是同步方法所属的主体对象自身
 
 50，Android提供了常用的操作多线程的方式
     （1）Handler+Thread
@@ -630,31 +638,128 @@ Android基础：
     要申请内存大于系统剩余内存
 
 54，分别介绍java四种引用
-
+    （1）强引用，直接new一个对象，即使内存不足，GC进行垃圾收集的时候也不会主动回收，用完后需要手动置null，等待GC回收
+    （2）软引用，在内存不足的时候，GC进行垃圾收集的时候会被GC回收 -- SoftReference<Object> softReference = new SoftReference<>(obj);
+    （3）弱引用，无论内存是否充足，GC进行垃圾收集的时候都会回收 -- WeakReference<Object> weakReference = new WeakReference<>(obj);
+    （4）虚引用，如果一个对象仅持有虚引用，那么它就和没有任何引用一样，在任何时候都可能被垃圾回收器回收
 
 55，举例说明哪些情况可能引起内存泄漏及内存泄漏如何解决
+    （1）资源用完未主动关闭，如session会话、数据库cursor、IO流资源
+            主动关闭资源，注册后的资源在没有引用的时候主动注销
+    （2）注册资源没有注销（反注册）
+            --如注册广播后unRegister
+    （3）Handler引起的内存泄漏
+            --退出activity时调用removeCallbacksAndMessages清空MessageQueue消息队列
+            --引用自定义静态内部类方式创建并弱引用Activity
+    （4）单例模式引起的内存泄漏
+            --引用ApplicationContext或者WeakReference activity
+    （5）非静态内部类创建静态实例引起的内存泄漏/非静态匿名内部类引起的内存泄漏
+    （6）集合对象没有及时清理引起的内存泄漏
+    （7）定时任务，退出应用时应取消
+    （8）退出时动画进行cancel取消播放
 
 
 56，内存泄漏检测的工具介绍
+    LeakCanary  profile/MAT
+
 57，ANR是什么
+    application no responding 应用无响应
+
 58，ANR的原因，如何避免
+    （1）KeyDispatchTimeout（5 seconds）主要类型按键或触摸事件在特定时间内无响应
+    （2）BroadcastTimeout（10 seconds）BoradcastReceiver在特定的时间内无法处理
+    （3）ServiceTimeout（20 seconds）小概率类型Service在特定的时间内无法处理完成
+    避免：
+        核心要点就是在主线程减少耗时操作
+
+      a）使用子线程处理耗时IO操作
+      b）降低子线程优先级，使用Thread或者HandlerThread时，设置优先级，
+          否则仍然会降低程序响应，因为默认Thread的优先级和主线程相同
+      c）使用Handler处理子线程结果，而不是使用Thread.wait()或者Thread.sleep()来阻塞主线程
+      d）Activity的onCreate和onResume回调中尽量避免耗时的代码
+      e）BroadcastReceiver中onReceiver代码也要尽量减少耗时操作，
+      f)建议使用intentService处理。intentService是一个异步的，会自动停止的服务，
+         解决了传统的Service中处理完耗时操作忘记停止并销毁Service的问题
+
 59，怎么理解性能优化
+    内存优化--四大引用、bitmap大图优化
+    绘制优化--减少背景重复绘制
+    布局优化-- include布局复用，减少cpu计算；合理使用merge；viewstub布局当中子View布局非常多，不需要同时显示
+    apk体积优化--
+
 60，怎么理解内存优化
+    优化处理应用程序的内存使用，空间占用
+        --避免内存抖动、内存泄漏、内存溢出OOM
+                --大量的创建临时性小对象如for循环，造成内存抖动
+                    --String 换成 StringBuffer 或者 StringBuilder，就能很完美的解决字符串拼接造成的内存抖动问题。
+
 61，java内存机制，堆，栈，方法区介绍
+    方法区：主要存储类信息、常量、静态变量
+    堆（主要内存优化）：主要存放对象，该区域属于线程共享的区域，要注意多线程安全
+                    这个内存区域的大小变化主要是对象的创建和回收，如：如果短时间内有大量的对象创建和回收，
+                    可能会造成内存抖动，如果对象创建之后一直回收不掉，则会导致内存泄漏，
+                    严重的内存泄漏会导致频繁的gc，从而是界面卡顿
+    栈：主要存放局部变量表、操作数栈、动态链接和方法返回地址等信息
+
 62，内存优化的优点
+    （1）减少OOM，提高应用稳定性
+    （2）减少卡顿，提高应用流畅度
+    （3）减少内存占用，提高应用后台运行时的存活率
+    （4）减少异常发生和代码逻辑隐患
+
 63，跨进程通信的方式有哪些及如何实现
+    四大组件分别对应四种跨进程通信方法
+    （1）Activity，startActivity的方式从一个App，跳转到了另外一个App的Activity--相机点击缩略图进入相册
+    （2）startService/bindService，使用AIDL，基于Binder机制
+    （3）Broadcast广播跨进程通知其他应用sendBroadcast()--网络状态监测，电量监测
+    （4）ContentProvider封装好供其他应用调用--进入相机缩略图刷新，系统封装好的图片/视频的表，共给相机的内容解析者调用
+
 64，Surface,View，SurfacaeTexture,SurfaceView，GLsurfaceview,Textureview区别
+    Surface可理解为容器，用来装数据
+    SurfacaeTexture是一个纹理，数据都是先放在纹理上处理，并不直接显示
+    view是用来显示视图
+    SurfaceView拥有独立的Surface，子线程更新
+    Textureview支持View属性设置，比如透明度，平移等
+    GLsurfaceview比SurfaceView多一个openGl的绘制环境
+
 65,JNI编程介绍
+    Java Native Interface，用来Java和C/C++之间的互调
+
 66,MVP/MVC/MVVM介绍
+    MVP，M和V之间需要通过Presenter来联系
+    MVC，Model、View、Controller，三者之间都有联系
+    MVVM，Model和View之间需要通过ViewModel来联系--基于DOM事件监听实现数据的双向绑定
+
 67.列举一个Java多线程的例子
+    多窗口买票
+    相机openCamera、createSession、倒计时--在子线程
+
 68,synchronized可以修饰什么
+    同步方法、同步代码块
+
 69,若一个线程在synchronized同步代码块里面自动wait,
 怎样让程序继续执行
+    使用notify或notifyAll
+
 70,synchronized修饰的内容，怎么判断作用的范围
+    同步方法作用在被修饰的方法上，作用的范围是整个方法，作用的对象是调用这个方法的对象
+    同步代码块作用的范围是大括号{}括起来的代码，作用的对象是调用这个代码块的对象
+
 71,你平时开发中用了哪些引用
-72,多线程同步在哪里使用 
+    强引用--new Object()
+    相机的中Activity使用弱引用
+
+72,多线程同步在哪里使用
+    （1）多窗口买票问题
+    （2）相机拍照时获取的多张照片的标号问题
+
 73,线程wait后，如何唤醒指定的线程
+    使用Lock锁的Condition对象，调用signal/signalAll唤醒指定的线程
+
 72,camera中哪些是观察者模式
+    （1）事件监听
+    （2）接口回调
+    （3）广播机制
 
 
 
