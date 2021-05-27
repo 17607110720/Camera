@@ -610,6 +610,7 @@ public class CameraController {
         }
     }
 
+
     public void closeSession() {
         if (null != mCaptureSession) {
             mCaptureSession.close();

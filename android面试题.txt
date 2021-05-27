@@ -3,7 +3,7 @@ Camera基础:
     CameraManager：相机管理类，打开和关闭系摄像头，获取相机特性
     CameraDevice：相机设备类，创建请求和Session
     CameraCaptureSession：相机会话类，向相机设备发送获取图像的请求
-    CameraCharacteristics：相机特性，摄像头的各种特性，如获取镜头朝向
+    CameraCharacteristics：相机特性，摄像头的各种特性，如获取镜头朝向，获取帧率范围
     ImageReader：图片数据流，从Surface接受渲染的图像数据
     CaptureRequest：相机请求类，表示一个捕捉请求。
                     为不同的场景（预览、拍照）创建不同的捕捉请求，
@@ -57,8 +57,9 @@ Camera基础:
         CONTROL_AF_TRIGGER_CANCEL--触发自动对焦扫描的取消操作
 
 7，怎么设置iso,曝光时间
-    CaptureRequest.Builder.set(CaptureRequest.SENSOR_SENSITIVITY,传入的值);
-    CaptureRequest.Builder.set(CaptureRequest.SENSOR_EXPOSURE_TIME,传入的值);
+    CONTROL_AE_MODE--CONTROL_AE_MODE_OFF（iso手动调节，需要先把AE自动感光关闭）
+    CaptureRequest.Builder.set(CaptureRequest.SENSOR_SENSITIVITY,传入的值)--iso
+    CaptureRequest.Builder.set(CaptureRequest.SENSOR_EXPOSURE_TIME,传入的值)--曝光时间
 
 8，怎么获取对焦状态
     CaptureResult.get(CaptureResult.CONTROL_AF_STATE)返回Integer类型
@@ -125,7 +126,7 @@ Camera基础:
     NV21--yuv_420的一种，实际项目中，拿到YUV数据，需转换为NV21，然后传给算法处理
     RAW_SENSOR--未经压缩处理的，sensor只出图像数据
 
-19、JIN简单介绍
+19、JNI简单介绍
     Java Native Interface
     Java和C/C++互相调用的接口
 
@@ -133,7 +134,7 @@ Camera基础:
     保证TextureView和预览Surface的宽高比一致
 
 21，自己实现的camera应用中用到几个线程
-    两个，一个主线程（UI线程），一个子线程（相机处理线程）
+    三个，一个主线程（UI线程），一个相机处理线程，一个拍照倒计时线程
 
 22，自己实现功能时碰到了哪些问题，如何解决
     （1）连续点击拍照按钮、频繁录像开始和结束、频繁前后置切换/比例切换/模式切换，会导致相机app报错异常退出。
@@ -218,8 +219,8 @@ Camera基础:
     template_manual--手动拍照
 
 37,慢动作如何实现：
-    在设置MediaRecorder参数的时候判断当前模式
-    setCaptureRate(120)
+    （1）在设置MediaRecorder参数的时候判断当前模式
+    （2）setCaptureRate(120)
 
 38,前后置切换如何实现：
     （1）关闭相机（（closeSessionAndImageReader、CameraDevice.close()））
@@ -230,14 +231,14 @@ Camera基础:
 39，相机预览卡顿原因：
     （1）打开相机openCamera、创建预览会话createCaptureSession
          和连续请求画面setRepeatingRequest没有放在子线程里面，而是在主线程请求
-    （2）内存泄漏：没有及时处理应该被回收的对象，没有关闭IO资源等等，导致严重的内存泄漏
-    （3）内存抖动：大量的for循环创建临时性的变量，导致内存抖动，引起频繁的gc
+    （2）内存泄漏：没有及时处理应该被回收的对象，如没有关闭IO资源、强引用activity、handler的消息队列没有清空等等，导致严重的内存泄漏
+    （3）内存抖动：如大量的for循环创建临时性的变量，导致内存抖动，引起频繁的gc
 
 40，bitmap缩略图，bitmap拿到的数据是从哪里来的，
 是不是直接从底层获取的，在哪个阶段怎么过去的数据
     在点击拍照完成后
     ImageReader的回调函数onImageAvailable(ImageReader reader)从底层拿到数据，
-    将底层传来的数据转换成byte数组然后解析成Bitmap加载到内存
+    将底层传来的数据转换成byte数组然后解析成Bitmap加载到内存，后生成缩略图更新到UI
 
 41,Java泛型在Camera中哪里遇到过
     （1）创建会话createCaptureSession()第一个参数运用到泛型
@@ -249,7 +250,7 @@ Camera基础:
 43.功能实现过程实现那个功能用了最长时间，
 遇到了什么问题，怎么解决的
     （1）打开相机光线很暗
-        原因：把3A模式总开关关闭了，CameraRequestBuilder.set(CaptureRequest.CONTROL_MODE,CameraMetadata.CONTROL_MODE_OFF);
+        原因：把3A模式总开关关闭了，CameraRequestBuilder.set(CaptureRequest.CONTROL_MODE,CaptureRequest.CONTROL_MODE_OFF);
     （2）iso参数下发没有效果
         原因：参数下发，但是没有重新发送请求和关闭CONTROL_AE_MODE
 
@@ -732,7 +733,6 @@ Android基础：
 
 67.列举一个Java多线程的例子
     多窗口买票
-    相机openCamera、createSession、倒计时--在子线程
 
 68,synchronized可以修饰什么
     同步方法、同步代码块
